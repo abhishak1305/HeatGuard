@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+
+{% block title %}Sign In - HeatGuard{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 480px; margin: 0 auto;">
+    <div class="card-header">
+        <div>
+            <h2 style="margin: 0; font-size: 1.4rem; color: var(--color-navy-dark);">Account Sign In</h2>
+            <div style="font-size: 0.85rem; color: var(--color-text-muted); margin-top: 0.2rem;">
+                Access saved monitoring stations and telemetry history
+            </div>
+        </div>
+        <span class="tag-provenance">session-auth</span>
+    </div>
+
+    {% if form.non_field_errors %}
+        <div class="alert alert-danger" role="alert">
+            {% for error in form.non_field_errors %}
+                <div>{{ error }}</div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <form method="post" action="{% url 'monitoring:login' %}" novalidate>
+        {% csrf_token %}
+
+        {% if request.GET.next %}
+            <input type="hidden" name="next" value="{{ request.GET.next }}">
+        {% endif %}
+
+        <div class="form-group">
+            <label for="id_username" class="form-label">Username</label>
+            {% if form.username %}
+                {{ form.username }}
+            {% else %}
+                <input type="text" name="username" class="form-input" placeholder="Enter your username" required id="id_username" autofocus>
+            {% endif %}
+            {% for error in form.username.errors %}
+                <div class="form-error">{{ error }}</div>
+            {% endfor %}
+        </div>
+
+        <div class="form-group">
+            <label for="id_password" class="form-label">Password</label>
+            {% if form.password %}
+                {{ form.password }}
+            {% else %}
+                <input type="password" name="password" class="form-input" placeholder="Enter your password" required id="id_password">
+            {% endif %}
+            {% for error in form.password.errors %}
+                <div class="form-error">{{ error }}</div>
+            {% endfor %}
+        </div>
+
+        <div style="margin-top: 1.5rem;">
+            <button type="submit" class="btn btn-primary" style="width: 100%;">Sign In</button>
+        </div>
+    </form>
+
+    <div style="margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--color-border); text-align: center; font-size: 0.875rem;">
+        Need an account? <a href="{% url 'monitoring:register' %}" style="color: #0f172a; font-weight: 600;">Register here</a>.
+    </div>
+</div>
+{% endblock %}

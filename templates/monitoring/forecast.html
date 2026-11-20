@@ -1,0 +1,318 @@
+{% extends 'base.html' %}
+
+{% block title %}Regional Heatwave Forecast & Outlook - HeatGuard{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <div>
+            <h2 style="margin: 0; font-size: 1.5rem; color: var(--color-navy-dark);">
+                Regional Heatwave Forecast
+            </h2>
+            <div style="font-size: 0.9rem; color: var(--color-text-muted); margin-top: 0.2rem;">
+                Forecast-based heat-risk outlook &bull; Numerical simulation projections
+            </div>
+        </div>
+        <span class="tag-provenance">provider-supplied</span>
+    </div>
+
+    <!-- Station Selection Form -->
+    <div style="background: #f8fafc; border: 1px solid var(--color-border); border-radius: 6px; padding: 1rem; margin-bottom: 1.5rem;">
+        <form method="get" action="{% url 'monitoring:forecast' %}" style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+            <label for="station-select" style="font-weight: 600; font-size: 0.875rem;">Select Monitoring Station:</label>
+            <select id="station-select" name="location_id" class="form-select" style="max-width: 320px;" onchange="this.form.submit()">
+                {% for station in all_stations %}
+                    <option value="{{ station.id }}" {% if location.id == station.id %}selected{% endif %}>
+                        {{ station.name }} ({{ station.country }})
+                    </option>
+                {% empty %}
+                    <option value="">No stations registered</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-secondary">Update Forecast</button>
+        </form>
+    </div>
+
+    <!-- Section Heading & Scientific Distinction Note -->
+    <div style="margin-bottom: 1.5rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.75rem;">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 0.5rem;">
+            <h3 style="margin: 0; font-size: 1.2rem; color: var(--color-navy-dark);">
+                Forecast-Based Heat-Risk Outlook
+            </h3>
+            <span class="badge risk-moderate" style="font-size: 0.75rem;">Model Outlook Only</span>
+        </div>
+        <div class="alert alert-warning" style="margin: 0.75rem 0 0; font-size: 0.825rem;">
+            <strong>Important Legal & Methodological Disclaimer:</strong>
+            This generated outlook is a mathematical estimate derived from numerical weather forecast models.
+            It is <strong>never</strong> an official government heatwave declaration, legal disaster order, or medical directive.
+            For binding declarations, please review official meteorological bulletins issued by public authorities.
+        </div>
+    </div>
+
+    {% if forecast_error %}
+        <div class="ui-state-box error-state">
+            <h3>Forecast Data Unavailable</h3>
+            <p>{{ forecast_error }}</p>
+            <p style="font-size: 0.8rem; color: var(--color-text-muted);">
+                HeatGuard does not generate synthetic forecasts or fabricated trends.
+            </p>
+        </div>
+    {% elif forecast_data %}
+        <!-- Location, Issue Time, Timezone & Attribution Metadata -->
+        <div style="background: #f1f5f9; border: 1px solid var(--color-border); border-radius: 6px; padding: 0.85rem 1rem; font-size: 0.825rem; color: var(--color-text-muted); margin-bottom: 1.5rem;">
+            <div class="grid-2">
+                <div>
+                    <div><strong>Station:</strong> {{ location.name }} ({{ location.latitude }}°, {{ location.longitude }}°)</div>
+                    <div><strong>Local Timezone:</strong> {{ forecast_data.timezone }} ({{ forecast_data.timezone_abbreviation }})</div>
+                    <div><strong>Units:</strong> Temperature in °C, Relative Humidity in %, Wind in km/h</div>
+                </div>
+                <div>
+                    <div><strong>Provider:</strong> {{ forecast_data.provider }} (CC BY 4.0 license)</div>
+                    <div><strong>Retrieval Timestamp:</strong> {{ forecast_data.retrieved_at|date:"Y-m-d H:i:s" }} UTC</div>
+                    <div><strong>Model Context:</strong> {{ forecast_data.model_context }}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hottest Forecast Summary Cards -->
+        <div class="grid-2" style="margin-bottom: 1.5rem;">
+            <div class="card" style="margin-bottom: 0; background: #fff7ed; border-color: #fed7aa;">
+                <div class="form-label" style="color: #9a3412;">Peak Hottest Forecast Hour (Next 24h)</div>
+                {% if hottest_hour %}
+                    <div style="font-size: 1.8rem; font-weight: 800; color: #9a3412;">
+                        {{ hottest_hour.temperature_c }} °C
+                    </div>
+                    <div style="font-size: 0.85rem; color: #7c2d12;">
+                        Target Time: <strong>{{ hottest_hour.time }}</strong>
+                        {% if hottest_hour.heat_index %}
+                            &bull; Estimated HI: <strong>{{ hottest_hour.heat_index.heat_index_c }} °C</strong> ({{ hottest_hour.heat_index.risk.category }})
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <div style="color: var(--color-text-muted);">Not available</div>
+                {% endif %}
+            </div>
+
+            <div class="card" style="margin-bottom: 0; background: #fff7ed; border-color: #fed7aa;">
+                <div class="form-label" style="color: #9a3412;">Peak Hottest Forecast Day (7-Day Horizon)</div>
+                {% if hottest_day %}
+                    <div style="font-size: 1.8rem; font-weight: 800; color: #9a3412;">
+                        {{ hottest_day.max_temp_c }} °C
+                    </div>
+                    <div style="font-size: 0.85rem; color: #7c2d12;">
+                        Peak Date: <strong>{{ hottest_day.date }}</strong>
+                        {% if hottest_day.apparent_max_c %}
+                            &bull; Provider Apparent Max: <strong>{{ hottest_day.apparent_max_c }} °C</strong>
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <div style="color: var(--color-text-muted);">Not available</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Practical Safety Guidance for Peak Forecast Outlook -->
+        {% if peak_safety_guidance %}
+            <div class="card" style="background: #f8fafc; border-left: 4px solid #f97316; margin-bottom: 1.5rem;">
+                <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.25rem;">
+                    <h4 style="margin: 0; font-size: 1rem; color: var(--color-navy-dark);">
+                        Targeted Guidance for Forecast Peak: {{ peak_safety_guidance.headline }}
+                    </h4>
+                    <a href="{% url 'monitoring:safety_guidance' %}" style="font-size: 0.8rem; color: #1e40af; text-decoration: underline;">
+                        Public Health Guidelines &rarr;
+                    </a>
+                </div>
+                <div style="font-size: 0.85rem; color: var(--color-text-muted); margin-bottom: 0.5rem;">
+                    {{ peak_safety_guidance.summary }}
+                </div>
+                <div class="grid-2" style="font-size: 0.825rem; line-height: 1.5;">
+                    <div>
+                        <p style="margin: 0 0 0.25rem;"><strong>Hydration:</strong> {{ peak_safety_guidance.hydration }}</p>
+                        <p style="margin: 0;"><strong>Shade & Rest:</strong> {{ peak_safety_guidance.shade_and_rest }}</p>
+                    </div>
+                    <div>
+                        <p style="margin: 0 0 0.25rem;"><strong>Outdoor Work:</strong> {{ peak_safety_guidance.outdoor_activity }}</p>
+                        <p style="margin: 0;"><strong>Warning Signs:</strong> {{ peak_safety_guidance.warning_signs }}</p>
+                    </div>
+                </div>
+                <div style="margin-top: 0.5rem; font-size: 0.775rem; color: #991b1b; border-top: 1px dashed var(--color-border); padding-top: 0.35rem;">
+                    <strong>Emergency Directive:</strong> In suspected heatstroke, call local emergency medical services immediately.
+                </div>
+            </div>
+        {% endif %}
+
+        <!-- Next 24-Hour Hourly Forecast Section with Pure CSS Bar Visualization -->
+        <div style="margin-bottom: 2rem;">
+            <h3 style="margin: 0 0 0.5rem; font-size: 1.15rem; color: var(--color-navy-dark);">
+                Next 24-Hour Hourly Temperature & Heat Index Outlook
+            </h3>
+            <p style="font-size: 0.825rem; color: var(--color-text-muted); margin: 0 0 1rem;">
+                Visual display generated from actual provider temperature numbers. Missing metrics are labeled without synthetic values.
+            </p>
+
+            <!-- Accessible CSS Bar Visualization -->
+            <div style="background: #ffffff; border: 1px solid var(--color-border); border-radius: 6px; padding: 1rem 0.5rem; overflow-x: auto; margin-bottom: 1.25rem;">
+                <div style="display: flex; gap: 0.5rem; align-items: flex-end; height: 160px; min-width: 680px; padding: 0 0.5rem;">
+                    {% for h in processed_hourly %}
+                        {% if h.temperature_c is not None %}
+                            <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%;">
+                                <span style="font-size: 0.7rem; font-weight: 600; color: #9a3412; margin-bottom: 2px;">
+                                    {{ h.temperature_c }}°
+                                </span>
+                                <div 
+                                    style="width: 100%; max-width: 18px; height: {{ h.bar_height }}%; background-color: {% if h.temperature_c >= 40 %}#dc2626{% elif h.temperature_c >= 35 %}#ea580c{% elif h.temperature_c >= 30 %}#f59e0b{% else %}#10b981{% endif %}; border-radius: 3px 3px 0 0;"
+                                    title="Time: {{ h.time }} | Temp: {{ h.temperature_c }}°C"
+                                ></div>
+                                <span style="font-size: 0.65rem; color: var(--color-text-muted); margin-top: 4px; white-space: nowrap;">
+                                    {{ h.time|slice:"11:16" }}
+                                </span>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Detailed 24-Hour Hourly Table -->
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Local Time</th>
+                            <th>Temperature (°C)</th>
+                            <th>Relative Humidity (%)</th>
+                            <th>Heat Index Estimate (°C)</th>
+                            <th>Risk Assessment</th>
+                            <th>Wind Speed (km/h)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for h in processed_hourly %}
+                            <tr>
+                                <td><strong>{{ h.time }}</strong></td>
+                                <td>
+                                    {% if h.temperature_c is not None %}
+                                        {{ h.temperature_c }} °C
+                                    {% else %}
+                                        <span style="color: var(--color-text-muted);">Not available</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if h.relative_humidity is not None %}
+                                        {{ h.relative_humidity }}%
+                                    {% else %}
+                                        <span style="color: var(--color-text-muted);">Not available</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if h.heat_index %}
+                                        <strong>{{ h.heat_index.heat_index_c }} °C</strong>
+                                        <div style="font-size: 0.725rem; color: var(--color-text-muted);">{{ h.heat_index.method_used }}</div>
+                                    {% else %}
+                                        <span style="color: var(--color-text-muted);">Not available</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if h.heat_index %}
+                                        {% include 'monitoring/partials/risk_badge.html' with badge_class=h.heat_index.risk.badge_class label=h.heat_index.risk.label %}
+                                    {% else %}
+                                        <span style="color: var(--color-text-muted); font-size: 0.8rem;">—</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if h.wind_speed_kmh is not None %}
+                                        {{ h.wind_speed_kmh }} km/h
+                                    {% else %}
+                                        <span style="color: var(--color-text-muted);">Not available</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="6" style="text-align: center; color: var(--color-text-muted);">No hourly forecast items returned.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 7-Day Daily Forecast Section -->
+        <div style="margin-bottom: 2rem;">
+            <h3 style="margin: 0 0 0.5rem; font-size: 1.15rem; color: var(--color-navy-dark);">
+                7-Day Daily Weather Outlook (Open-Meteo)
+            </h3>
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Max Temperature</th>
+                            <th>Min Temperature</th>
+                            <th>Provider Apparent Max</th>
+                            <th>Provider Apparent Min</th>
+                            <th>Daily Range Bar</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for d in processed_daily %}
+                            <tr>
+                                <td><strong>{{ d.date }}</strong></td>
+                                <td>
+                                    {% if d.max_temp_c is not None %}
+                                        <span style="color: #9a3412; font-weight: 700;">{{ d.max_temp_c }} °C</span>
+                                    {% else %}
+                                        <span style="color: var(--color-text-muted);">Not available</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if d.min_temp_c is not None %}
+                                        <span style="color: #0369a1;">{{ d.min_temp_c }} °C</span>
+                                    {% else %}
+                                        <span style="color: var(--color-text-muted);">Not available</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if d.apparent_max_c is not None %}
+                                        {{ d.apparent_max_c }} °C
+                                    {% else %}
+                                        <span style="color: var(--color-text-muted);">Not available</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if d.apparent_min_c is not None %}
+                                        {{ d.apparent_min_c }} °C
+                                    {% else %}
+                                        <span style="color: var(--color-text-muted);">Not available</span>
+                                    {% endif %}
+                                </td>
+                                <td style="width: 25%;">
+                                    {% if d.max_temp_c is not None %}
+                                        <div style="background-color: #f1f5f9; border-radius: 4px; height: 10px; width: 100%; overflow: hidden;">
+                                            <div style="background-color: #ea580c; height: 100%; width: {{ d.bar_width }}%;"></div>
+                                        </div>
+                                    {% else %}
+                                        <span style="color: var(--color-text-muted); font-size: 0.8rem;">No bar</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="6" style="text-align: center; color: var(--color-text-muted);">No daily forecast data available.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    {% else %}
+        {% include 'monitoring/partials/state_box.html' with title="No Location Selected" message="Please select an active station to load the heatwave forecast outlook." %}
+    {% endif %}
+
+    <div style="margin-top: 1.5rem; display: flex; gap: 0.75rem;">
+        <a href="{% url 'monitoring:city_search' %}" class="btn btn-secondary">&larr; Back to Stations</a>
+        {% if location %}
+            <a href="{% url 'monitoring:city_dashboard' location_id=location.id %}" class="btn btn-primary">Return to {{ location.name }} Dashboard</a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

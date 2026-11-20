@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+
+{% block title %}Station Monitor & Search - HeatGuard{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2>Monitor Station Search</h2>
+        <span class="tag-provenance">user-entered</span>
+    </div>
+    <p>Search active monitoring stations or lookup any global city using Open-Meteo geocoding:</p>
+
+    {% if form.non_field_errors %}
+        <div class="alert alert-danger" role="alert">
+            {% for error in form.non_field_errors %}
+                <p style="margin: 0;">{{ error }}</p>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    {% if error_message %}
+        <div class="alert alert-warning" role="alert">
+            <strong>Search Status:</strong> {{ error_message }}
+            <p style="margin: 0.25rem 0 0; font-size: 0.85rem;">
+                Please verify spelling or select an existing station from the directory below.
+            </p>
+        </div>
+    {% endif %}
+
+    <form method="get" action="{% url 'monitoring:city_search' %}" novalidate style="margin-bottom: 1.5rem;">
+        <div class="form-group" style="max-width: 580px;">
+            <label for="{{ form.city.id_for_label }}" class="form-label">{{ form.city.label }}</label>
+            <div style="display: flex; gap: 0.5rem;">
+                {{ form.city }}
+                <button type="submit" class="btn btn-primary">Search / Geocode</button>
+            </div>
+            {% if form.city.errors %}
+                <div style="color: #dc2626; font-size: 0.825rem; margin-top: 0.35rem;">
+                    {% for error in form.city.errors %}
+                        <div>&bull; {{ error }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+    </form>
+
+    {% if session_searches %}
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1.5rem;">
+            <div style="font-size: 0.825rem; font-weight: 600; color: var(--color-navy-dark); margin-bottom: 0.4rem;">
+                Recent Searches (Session History):
+            </div>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                {% for item in session_searches %}
+                    <a href="{% url 'monitoring:city_dashboard' location_id=item.id %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.5rem;">
+                        {{ item.name }} ({{ item.country }})
+                    </a>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+
+    <h3 style="margin-top: 1.75rem;">Active Monitoring Stations Directory</h3>
+    {% if all_stations %}
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Station Name</th>
+                        <th>State / Region</th>
+                        <th>Country</th>
+                        <th>Coordinates</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for station in all_stations %}
+                        <tr>
+                            <td><strong>{{ station.name }}</strong></td>
+                            <td>{{ station.state_or_region|default:"—" }}</td>
+                            <td>{{ station.country }}</td>
+                            <td>{{ station.latitude }}°, {{ station.longitude }}°</td>
+                            <td>
+                                <a href="{% url 'monitoring:city_dashboard' location_id=station.id %}" class="btn btn-secondary">Open Dashboard</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        {% include 'monitoring/partials/state_box.html' with title="No Stations Registered" message="There are currently no monitoring stations saved in the database." %}
+    {% endif %}
+</div>
+{% endblock %}

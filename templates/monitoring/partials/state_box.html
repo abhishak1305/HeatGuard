@@ -1,0 +1,7 @@
+<div class="ui-state-box {% if is_error %}error-state{% elif is_loading %}loading-state{% endif %}">
+    <h3>{{ title|default:'No Information Available' }}</h3>
+    <p>{{ message|default:'There are currently no records or updates to display.' }}</p>
+    {% if action_url and action_label %}
+        <a href="{{ action_url }}" class="btn btn-secondary">{{ action_label }}</a>
+    {% endif %}
+</div>

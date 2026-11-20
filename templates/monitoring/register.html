@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+
+{% block title %}Register Account - HeatGuard{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 520px; margin: 0 auto;">
+    <div class="card-header">
+        <div>
+            <h2 style="margin: 0; font-size: 1.4rem; color: var(--color-navy-dark);">Create Your Account</h2>
+            <div style="font-size: 0.85rem; color: var(--color-text-muted); margin-top: 0.2rem;">
+                Bookmark monitoring stations and track personalized telemetry history
+            </div>
+        </div>
+        <span class="tag-provenance">account</span>
+    </div>
+
+    {% if form.non_field_errors %}
+        <div class="alert alert-danger">
+            {% for error in form.non_field_errors %}
+                <div>{{ error }}</div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <form method="post" action="{% url 'monitoring:register' %}" novalidate>
+        {% csrf_token %}
+
+        <div class="form-group">
+            <label for="id_username" class="form-label">Username *</label>
+            {% if form.username %}
+                {{ form.username }}
+            {% else %}
+                <input type="text" name="username" class="form-input" placeholder="Choose a username" required id="id_username" autofocus>
+            {% endif %}
+            {% for error in form.username.errors %}
+                <div class="form-error">{{ error }}</div>
+            {% endfor %}
+            <div style="font-size: 0.775rem; color: var(--color-text-muted); margin-top: 0.2rem;">
+                Required. 150 characters or fewer. Letters, digits and @/./+/-/_ only.
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="id_email" class="form-label">Email Address (Optional)</label>
+            {% if form.email %}
+                {{ form.email }}
+            {% else %}
+                <input type="email" name="email" class="form-input" placeholder="Optional email address" id="id_email">
+            {% endif %}
+            {% for error in form.email.errors %}
+                <div class="form-error">{{ error }}</div>
+            {% endfor %}
+        </div>
+
+        <div class="form-group">
+            <label for="id_password1" class="form-label">Password *</label>
+            {% if form.password1 %}
+                {{ form.password1 }}
+            {% else %}
+                <input type="password" name="password1" class="form-input" placeholder="Enter a secure password" required id="id_password1">
+            {% endif %}
+            {% for error in form.password1.errors %}
+                <div class="form-error">{{ error }}</div>
+            {% endfor %}
+            <div style="font-size: 0.775rem; color: var(--color-text-muted); margin-top: 0.25rem;">
+                Password must contain at least 8 characters. Avoid common or entirely numeric passwords.
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="id_password2" class="form-label">Confirm Password *</label>
+            {% if form.password2 %}
+                {{ form.password2 }}
+            {% else %}
+                <input type="password" name="password2" class="form-input" placeholder="Enter a secure password" required id="id_password2">
+            {% endif %}
+            {% for error in form.password2.errors %}
+                <div class="form-error">{{ error }}</div>
+            {% endfor %}
+        </div>
+
+        <div style="margin-top: 1.5rem;">
+            <button type="submit" class="btn btn-primary" style="width: 100%;">Create Account</button>
+        </div>
+    </form>
+
+    <div style="margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--color-border); text-align: center; font-size: 0.875rem;">
+        Already registered? <a href="{% url 'monitoring:login' %}" style="color: #0f172a; font-weight: 600;">Sign in here</a>.
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,170 @@
+{% extends 'base.html' %}
+
+{% block title %}Official Heat Notices & Bulletins - HeatGuard{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <div>
+            <h2 style="margin: 0; font-size: 1.5rem; color: var(--color-navy-dark);">
+                Official Heat Notices & Bulletins
+            </h2>
+            <div style="font-size: 0.9rem; color: var(--color-text-muted); margin-top: 0.2rem;">
+                Verified statutory advisories issued by recognized meteorological and civil authorities
+            </div>
+        </div>
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+            {% if user.is_authenticated and user.is_staff or perms.monitoring.add_officialnotice %}
+                <a href="{% url 'monitoring:notice_create' %}" class="btn btn-primary">+ Publish Notice (Staff)</a>
+            {% endif %}
+            <span class="tag-provenance">officially published</span>
+        </div>
+    </div>
+
+    <!-- Clear distinction alert between model estimates and official notices -->
+    <div class="alert alert-info" style="font-size: 0.85rem; margin-bottom: 1.5rem;">
+        <strong>Notice Integrity Standard:</strong>
+        Bulletins on this page are <strong>Official Notices</strong> entered or verified by authorized staff with required source attribution (issuing authority, source URL, and validity window). They are legally and operationally distinct from HeatGuard's automated model-based forecast advisories.
+    </div>
+
+    <!-- Active Official Notices -->
+    <div style="margin-bottom: 2rem;">
+        <h3 style="margin: 0 0 0.75rem; font-size: 1.2rem; color: var(--color-navy-dark); display: flex; align-items: center; gap: 0.5rem;">
+            <span>Active Official Notices</span>
+            <span class="badge risk-very-high" style="font-size: 0.75rem;">Currently In Effect</span>
+        </h3>
+
+        {% if active_notices %}
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Location</th>
+                            <th>Notice Title & Directives</th>
+                            <th>Issuing Organization</th>
+                            <th>Severity</th>
+                            <th>Validity Period</th>
+                            <th>Verification Source</th>
+                            {% if user.is_authenticated and user.is_staff or perms.monitoring.change_officialnotice %}<th>Action</th>{% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for notice in active_notices %}
+                            <tr>
+                                <td>
+                                    <strong>{{ notice.location.name }}</strong>
+                                    <div style="font-size: 0.8rem; color: var(--color-text-muted);">{{ notice.location.country }}</div>
+                                </td>
+                                <td>
+                                    <strong style="color: var(--color-navy-dark);">{{ notice.title }}</strong>
+                                    <div style="font-size: 0.825rem; color: #475569; margin-top: 0.25rem;">
+                                        {{ notice.message }}
+                                    </div>
+                                </td>
+                                <td>{{ notice.issuing_organization }}</td>
+                                <td>
+                                    <span class="badge {% if notice.severity == 'EMERGENCY' %}risk-extreme{% elif notice.severity == 'WARNING' %}risk-very-high{% elif notice.severity == 'WATCH' %}risk-high{% else %}risk-moderate{% endif %}">
+                                        {{ notice.severity }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div style="font-size: 0.8rem;">
+                                        <strong>From:</strong> {{ notice.valid_from|date:"M d, Y H:i" }}<br>
+                                        <strong>Until:</strong> {{ notice.valid_until|date:"M d, Y H:i" }}
+                                    </div>
+                                </td>
+                                <td>
+                                    <a href="{{ notice.source_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">
+                                        Official Bulletin &nearr;
+                                    </a>
+                                </td>
+                                {% if user.is_authenticated and user.is_staff or perms.monitoring.change_officialnotice %}
+                                    <td>
+                                        <a href="{% url 'monitoring:notice_edit' notice_id=notice.id %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">Edit</a>
+                                    </td>
+                                {% endif %}
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            {% include 'monitoring/partials/state_box.html' with title="No Active Official Notices" message="There are currently no active statutory heat advisories or warnings in effect." %}
+        {% endif %}
+    </div>
+
+    <!-- Upcoming Notices -->
+    {% if upcoming_notices %}
+        <div style="margin-bottom: 2rem;">
+            <h3 style="margin: 0 0 0.75rem; font-size: 1.15rem; color: var(--color-navy-dark); display: flex; align-items: center; gap: 0.5rem;">
+                <span>Upcoming Scheduled Bulletins</span>
+                <span class="badge risk-moderate" style="font-size: 0.75rem;">Upcoming</span>
+            </h3>
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Location</th>
+                            <th>Headline</th>
+                            <th>Issuing Agency</th>
+                            <th>Effective Start Time</th>
+                            <th>Source</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for notice in upcoming_notices %}
+                            <tr>
+                                <td><strong>{{ notice.location.name }}</strong></td>
+                                <td>{{ notice.title }}</td>
+                                <td>{{ notice.issuing_organization }}</td>
+                                <td>{{ notice.valid_from|date:"M d, Y H:i" }}</td>
+                                <td>
+                                    <a href="{{ notice.source_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.5rem;">Source &nearr;</a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Expired Historical Notices -->
+    <div style="margin-top: 2rem;">
+        <h3 style="margin: 0 0 0.75rem; font-size: 1.15rem; color: var(--color-text-muted); display: flex; align-items: center; gap: 0.5rem;">
+            <span>Expired Notices Archive</span>
+            <span class="badge risk-low" style="font-size: 0.75rem;">Expired</span>
+        </h3>
+        {% if expired_notices %}
+            <div class="table-responsive">
+                <table class="data-table" style="opacity: 0.85;">
+                    <thead>
+                        <tr>
+                            <th>Location</th>
+                            <th>Notice Title</th>
+                            <th>Issuing Agency</th>
+                            <th>Severity</th>
+                            <th>Expired At</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for notice in expired_notices %}
+                            <tr>
+                                <td>{{ notice.location.name }}</td>
+                                <td>{{ notice.title }}</td>
+                                <td>{{ notice.issuing_organization }}</td>
+                                <td><span class="badge risk-low">{{ notice.severity }}</span></td>
+                                <td>{{ notice.valid_until|date:"M d, Y H:i" }}</td>
+                                <td><span class="badge risk-low">Expired</span></td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p style="font-size: 0.85rem; color: var(--color-text-muted);">No expired notices recorded in archive.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

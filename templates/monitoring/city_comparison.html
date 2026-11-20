@@ -1,0 +1,247 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}City Comparison - HeatGuard{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2>Comparative Thermal Stress Analysis</h2>
+        <span class="tag-provenance">application-calculated</span>
+    </div>
+    <p>Compare current weather conditions and heat index estimates for up to 3 cities using live provider data.</p>
+
+    <form method="post" action="{% url 'monitoring:city_comparison' %}">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div class="alert alert-danger">
+            {% for error in form.non_field_errors %}
+                <p>{{ error }}</p>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.25rem; margin-bottom: 1.25rem;">
+            <!-- City 1 (Required) -->
+            <fieldset style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem;">
+                <legend style="font-weight: 600; padding: 0 0.5rem;">City 1 (Required)</legend>
+                <div class="form-group">
+                    <label for="{{ form.station_1.id_for_label }}">{{ form.station_1.label }}</label>
+                    {{ form.station_1 }}
+                    {% for error in form.station_1.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.city_name_1.id_for_label }}">{{ form.city_name_1.label }}</label>
+                    {{ form.city_name_1 }}
+                    {% for error in form.city_name_1.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+                </div>
+            </fieldset>
+
+            <!-- City 2 (Required) -->
+            <fieldset style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem;">
+                <legend style="font-weight: 600; padding: 0 0.5rem;">City 2 (Required)</legend>
+                <div class="form-group">
+                    <label for="{{ form.station_2.id_for_label }}">{{ form.station_2.label }}</label>
+                    {{ form.station_2 }}
+                    {% for error in form.station_2.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.city_name_2.id_for_label }}">{{ form.city_name_2.label }}</label>
+                    {{ form.city_name_2 }}
+                    {% for error in form.city_name_2.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+                </div>
+            </fieldset>
+
+            <!-- City 3 (Optional) -->
+            <fieldset style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem;">
+                <legend style="font-weight: 600; padding: 0 0.5rem;">City 3 (Optional)</legend>
+                <div class="form-group">
+                    <label for="{{ form.station_3.id_for_label }}">{{ form.station_3.label }}</label>
+                    {{ form.station_3 }}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.city_name_3.id_for_label }}">{{ form.city_name_3.label }}</label>
+                    {{ form.city_name_3 }}
+                </div>
+            </fieldset>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Compare Cities</button>
+    </form>
+</div>
+
+{% if comparison_attempted %}
+<div class="card" style="margin-top: 1.5rem;">
+    <div class="card-header">
+        <h3>Comparison Results</h3>
+        <span class="tag-provenance">provider-supplied &amp; application-calculated</span>
+    </div>
+
+    {% if comparison_results %}
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Metric</th>
+                    {% for result in comparison_results %}
+                    <th>
+                        {% if result.location %}
+                            {{ result.location.name }}{% if result.location.country %}, {{ result.location.country }}{% endif %}
+                        {% else %}
+                            City {{ result.slot }}
+                        {% endif %}
+                    </th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Temperature -->
+                <tr>
+                    <td><strong>Temperature</strong></td>
+                    {% for result in comparison_results %}
+                    <td>
+                        {% if result.error %}
+                            <span class="text-muted" title="{{ result.error }}">⚠ Unavailable</span>
+                        {% elif result.temperature_c != None %}
+                            {{ result.temperature_c }} °C
+                        {% else %}
+                            <span class="text-muted">Not available</span>
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+
+                <!-- Relative Humidity -->
+                <tr>
+                    <td><strong>Relative Humidity</strong></td>
+                    {% for result in comparison_results %}
+                    <td>
+                        {% if result.error %}
+                            <span class="text-muted">⚠ Unavailable</span>
+                        {% elif result.relative_humidity != None %}
+                            {{ result.relative_humidity }}%
+                        {% else %}
+                            <span class="text-muted">Not available</span>
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+
+                <!-- Provider Apparent Temperature -->
+                <tr>
+                    <td><strong>Provider Apparent Temp</strong></td>
+                    {% for result in comparison_results %}
+                    <td>
+                        {% if result.error %}
+                            <span class="text-muted">⚠ Unavailable</span>
+                        {% elif result.apparent_temperature_c != None %}
+                            {{ result.apparent_temperature_c }} °C
+                        {% else %}
+                            <span class="text-muted">Not available</span>
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+
+                <!-- Wind Speed -->
+                <tr>
+                    <td><strong>Wind Speed</strong></td>
+                    {% for result in comparison_results %}
+                    <td>
+                        {% if result.error %}
+                            <span class="text-muted">⚠ Unavailable</span>
+                        {% elif result.wind_speed_kmh != None %}
+                            {{ result.wind_speed_kmh }} km/h
+                        {% else %}
+                            <span class="text-muted">Not available</span>
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+
+                <!-- Heat Index Estimate -->
+                <tr>
+                    <td><strong>Heat Index Estimate</strong></td>
+                    {% for result in comparison_results %}
+                    <td>
+                        {% if result.error %}
+                            <span class="text-muted">⚠ Unavailable</span>
+                        {% elif result.heat_index_c != None %}
+                            {{ result.heat_index_c }} °C
+                        {% else %}
+                            <span class="text-muted">Not applicable</span>
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+
+                <!-- Risk Category -->
+                <tr>
+                    <td><strong>Risk Category</strong></td>
+                    {% for result in comparison_results %}
+                    <td>
+                        {% if result.error %}
+                            <span class="text-muted">⚠ Unavailable</span>
+                        {% elif result.risk_label %}
+                            {% include 'monitoring/partials/risk_badge.html' with badge_class=result.risk_badge_class label=result.risk_label %}
+                            <br><small>{{ result.risk_description }}</small>
+                        {% else %}
+                            <span class="text-muted">Not applicable</span>
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+
+                <!-- Retrieval Time -->
+                <tr>
+                    <td><strong>Retrieval Time</strong></td>
+                    {% for result in comparison_results %}
+                    <td>
+                        {% if result.retrieval_time_ms != None %}
+                            {{ result.retrieval_time_ms }} ms
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+
+                <!-- Data Source -->
+                <tr>
+                    <td><strong>Data Source</strong></td>
+                    {% for result in comparison_results %}
+                    <td>
+                        {% if result.source %}
+                            {{ result.source }}
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Per-city error details -->
+    {% for result in comparison_results %}
+        {% if result.error %}
+        <div class="alert alert-danger" style="margin-top: 0.75rem;">
+            <strong>{% if result.location %}{{ result.location.name }}{% else %}City {{ result.slot }}{% endif %}:</strong>
+            {{ result.error }}
+        </div>
+        {% endif %}
+    {% endfor %}
+
+    <p style="margin-top: 1rem; font-size: 0.85rem; color: #718096;">
+        <strong>Source:</strong> Weather data by Open-Meteo.com (CC BY 4.0).
+        Heat Index estimates use the NWS Rothfusz regression method.
+        This is an educational comparison — not an official advisory.
+    </p>
+    {% else %}
+    <p class="text-muted">No comparison data could be retrieved. Please check your selections and try again.</p>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

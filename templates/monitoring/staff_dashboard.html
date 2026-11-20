@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+
+{% block title %}Weather Authority Staff Dashboard - HeatGuard{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <div>
+            <h2 style="margin: 0; font-size: 1.5rem; color: var(--color-navy-dark);">
+                Weather Authority & Staff Overview
+            </h2>
+            <div style="font-size: 0.9rem; color: var(--color-text-muted); margin-top: 0.2rem;">
+                Official Heat Bulletin & Environmental Telemetry Management
+            </div>
+        </div>
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <a href="{% url 'monitoring:notice_create' %}" class="btn btn-primary">+ Publish Notice</a>
+            <span class="badge risk-very-high">Authority Staff</span>
+        </div>
+    </div>
+
+    <!-- Summary Metrics -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin: 1.5rem 0 2rem;">
+        <div style="background: var(--color-gray-100, #f3f4f6); padding: 1rem; border-radius: 6px; border-left: 4px solid var(--color-navy, #1e3a8a);">
+            <div style="font-size: 0.8rem; text-transform: uppercase; color: var(--color-text-muted);">Total Locations</div>
+            <div style="font-size: 1.75rem; font-weight: bold; color: var(--color-navy-dark);">{{ total_stations }}</div>
+        </div>
+        <div style="background: var(--color-gray-100, #f3f4f6); padding: 1rem; border-radius: 6px; border-left: 4px solid #059669;">
+            <div style="font-size: 0.8rem; text-transform: uppercase; color: var(--color-text-muted);">Published Notices</div>
+            <div style="font-size: 1.75rem; font-weight: bold; color: var(--color-navy-dark);">{{ total_published_notices }}</div>
+            <div style="font-size: 0.75rem; color: var(--color-text-muted);">{{ all_notices.count }} total including drafts</div>
+        </div>
+        <div style="background: var(--color-gray-100, #f3f4f6); padding: 1rem; border-radius: 6px; border-left: 4px solid #d97706;">
+            <div style="font-size: 0.8rem; text-transform: uppercase; color: var(--color-text-muted);">Stored Weather Records</div>
+            <div style="font-size: 1.75rem; font-weight: bold; color: var(--color-navy-dark);">{{ total_telemetry }}</div>
+        </div>
+        <div style="background: var(--color-gray-100, #f3f4f6); padding: 1rem; border-radius: 6px; border-left: 4px solid #7c3aed;">
+            <div style="font-size: 0.8rem; text-transform: uppercase; color: var(--color-text-muted);">User Saved Locations</div>
+            <div style="font-size: 1.75rem; font-weight: bold; color: var(--color-navy-dark);">{{ total_saved }}</div>
+        </div>
+    </div>
+    <p style="font-size: 0.8rem; color: var(--color-text-muted); margin: -1rem 0 1.5rem;">
+        <em>Note: Figures above reflect internal database counts only, not real-world population exposure or affected populations.</em>
+    </p>
+
+    <!-- Notices Management Table -->
+    <h3 style="margin: 0 0 0.75rem; font-size: 1.2rem; color: var(--color-navy-dark);">
+        All Official Bulletins (Published & Drafts)
+    </h3>
+    {% if all_notices %}
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Station</th>
+                        <th>Notice Title</th>
+                        <th>Issuing Org</th>
+                        <th>Severity</th>
+                        <th>Valid From</th>
+                        <th>Valid Until</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for notice in all_notices %}
+                        <tr>
+                            <td><strong>{{ notice.location.name }}</strong></td>
+                            <td>{{ notice.title }}</td>
+                            <td>{{ notice.issuing_organization }}</td>
+                            <td>
+                                <span class="badge {% if notice.severity == 'ADVISORY' %}risk-moderate{% elif notice.severity == 'WATCH' %}risk-high{% else %}risk-extreme{% endif %}">
+                                    {{ notice.severity }}
+                                </span>
+                            </td>
+                            <td>{{ notice.valid_from|date:"Y-m-d H:i" }}</td>
+                            <td>{{ notice.valid_until|date:"Y-m-d H:i" }}</td>
+                            <td>
+                                {% if notice.is_published %}
+                                    <span style="color: #059669; font-weight: 600;">Published</span>
+                                {% else %}
+                                    <span style="color: #dc2626; font-weight: 600;">Draft</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{% url 'monitoring:notice_edit' notice_id=notice.id %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">Edit</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        {% include 'monitoring/partials/state_box.html' with title="No Bulletins Found" message="No official heat notices have been created in the system." action_url="/notices/create/" action_label="Publish Notice" %}
+    {% endif %}
+
+    <div style="margin-top: 2rem; display: flex; gap: 0.75rem;">
+        <a href="{% url 'monitoring:notice_list' %}" class="btn btn-secondary">Public Bulletins</a>
+        <a href="{% url 'monitoring:home' %}" class="btn btn-secondary">Home</a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,138 @@
+{% extends 'base.html' %}
+
+{% block title %}User Profile & Saved Stations - HeatGuard{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <div>
+            <h2 style="margin: 0; font-size: 1.5rem; color: var(--color-navy-dark);">
+                User Profile & Saved Stations
+            </h2>
+            <div style="font-size: 0.9rem; color: var(--color-text-muted); margin-top: 0.2rem;">
+                Logged in as <strong>{{ user.username }}</strong>
+                {% if user.email %}({{ user.email }}){% endif %}
+                &bull; Member since {{ user.date_joined|date:"M d, Y" }}
+                {% if user.is_staff %}&bull; <span class="badge risk-very-high">Staff Member</span>{% endif %}
+            </div>
+        </div>
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <form method="post" action="{% url 'monitoring:logout' %}" style="display: inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-secondary" style="font-size: 0.8rem;">Sign Out</button>
+            </form>
+            <span class="tag-provenance">authenticated</span>
+        </div>
+    </div>
+
+    <!-- Saved Locations Bookmarks Section -->
+    <div style="margin-bottom: 2rem;">
+        <h3 style="margin: 0 0 0.75rem; font-size: 1.2rem; color: var(--color-navy-dark);">
+            Your Bookmarked Stations
+        </h3>
+        {% if saved_locations %}
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Station Name</th>
+                            <th>Region</th>
+                            <th>Country</th>
+                            <th>Coordinates</th>
+                            <th>Saved At</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in saved_locations %}
+                            <tr>
+                                <td><strong>{{ item.location.name }}</strong></td>
+                                <td>{{ item.location.state_or_region|default:"—" }}</td>
+                                <td>{{ item.location.country }}</td>
+                                <td>{{ item.location.latitude }}°, {{ item.location.longitude }}°</td>
+                                <td>{{ item.created_at|date:"Y-m-d H:i" }}</td>
+                                <td style="display: flex; gap: 0.5rem;">
+                                    <a href="{% url 'monitoring:city_dashboard' location_id=item.location.id %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">Open Dashboard</a>
+                                    <form method="post" action="{% url 'monitoring:remove_saved_location' location_id=item.location.id %}" style="display: inline;">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.5rem; color: #dc2626;">Remove</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            {% include 'monitoring/partials/state_box.html' with title="No Saved Stations" message="You have not bookmarked any monitoring stations yet. Search for a city and click 'Save to Favorites'." action_url="/search/" action_label="Browse Stations" %}
+        {% endif %}
+    </div>
+
+    <!-- User Search / Telemetry Query History -->
+    <div style="margin-top: 2rem;">
+        <h3 style="margin: 0 0 0.75rem; font-size: 1.2rem; color: var(--color-navy-dark);">
+            Your Recent Telemetry Queries
+        </h3>
+        {% if query_history %}
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Station</th>
+                            <th>Temperature</th>
+                            <th>Humidity</th>
+                            <th>Heat Index</th>
+                            <th>Assigned Risk</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in query_history %}
+                            <tr>
+                                <td>{{ record.recorded_at|date:"Y-m-d H:i" }} UTC</td>
+                                <td><strong>{{ record.location.name }}</strong></td>
+                                <td>{{ record.temperature_c }} °C</td>
+                                <td>{{ record.relative_humidity }}%</td>
+                                <td>{% if record.heat_index_c %}{{ record.heat_index_c }} °C{% else %}Not available{% endif %}</td>
+                                <td>
+                                    <span class="badge {% if record.risk_level == 'NORMAL' %}risk-low{% elif record.risk_level == 'CAUTION' %}risk-moderate{% elif record.risk_level == 'EXTREME_CAUTION' %}risk-high{% elif record.risk_level == 'DANGER' %}risk-very-high{% else %}risk-extreme{% endif %}">
+                                        {{ record.risk_level }}
+                                    </span>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p style="font-size: 0.85rem; color: var(--color-text-muted);">
+                No telemetry queries recorded under your account yet.
+            </p>
+        {% endif %}
+    </div>
+
+    {% if session_searches %}
+        <!-- Non-sensitive Session Recent Searches -->
+        <div style="margin-top: 2rem;">
+            <h3 style="margin: 0 0 0.75rem; font-size: 1.2rem; color: var(--color-navy-dark);">
+                Current Session Searches
+            </h3>
+            <p style="font-size: 0.85rem; color: var(--color-text-muted); margin-bottom: 0.5rem;">
+                Temporary recent station searches tracked during your active browsing session:
+            </p>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                {% for item in session_searches %}
+                    <a href="{% url 'monitoring:city_dashboard' location_id=item.id %}" class="btn btn-secondary" style="font-size: 0.8rem;">
+                        {{ item.name }} ({{ item.country }}) &rarr;
+                    </a>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+
+    <div style="margin-top: 2rem; display: flex; gap: 0.75rem;">
+        <a href="{% url 'monitoring:city_search' %}" class="btn btn-primary">Find More Stations</a>
+        <a href="{% url 'monitoring:home' %}" class="btn btn-secondary">Home</a>
+    </div>
+</div>
+{% endblock %}

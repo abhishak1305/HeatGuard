@@ -1,0 +1,301 @@
+{% extends 'base.html' %}
+
+{% block title %}City Monitoring Dashboard - {{ location.name }} - HeatGuard{% endblock %}
+
+{% block content %}
+<div class="card">
+    <!-- Header with Geographic Details & Provenance -->
+    <div class="card-header">
+        <div>
+            <h2 style="margin: 0; font-size: 1.5rem; color: var(--color-navy-dark);">
+                {{ location.name }}
+            </h2>
+            <div style="font-size: 0.9rem; color: var(--color-text-muted); margin-top: 0.2rem;">
+                {{ location.state_or_region|default:"Region not specified" }}, {{ location.country }}
+                &bull; Coordinates: {{ location.latitude }}°, {{ location.longitude }}°
+                {% if live_weather %}
+                    &bull; Last Retrieved: {{ live_weather.retrieved_at|date:"Y-m-d H:i:s" }} UTC
+                {% endif %}
+            </div>
+        </div>
+        <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+            {% if user.is_authenticated %}
+                {% if is_saved %}
+                    <form method="post" action="{% url 'monitoring:remove_saved_location' location_id=location.id %}" style="display: inline;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-secondary" style="color: #dc2626;">★ Saved</button>
+                    </form>
+                {% else %}
+                    <form method="post" action="{% url 'monitoring:save_location' location_id=location.id %}" style="display: inline;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-secondary">☆ Bookmark Station</button>
+                    </form>
+                {% endif %}
+            {% endif %}
+            <a href="{% url 'monitoring:forecast' %}?location_id={{ location.id }}" class="btn btn-secondary">Detailed Forecast &rarr;</a>
+            <span class="tag-provenance">provider-supplied</span>
+        </div>
+    </div>
+
+    <!-- Human Thermal Stress Assessment Section Header with Clear Scientific Qualification -->
+    <div style="margin-bottom: 1.25rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.6rem;">
+        <h3 style="margin: 0 0 0.25rem; font-size: 1.15rem; color: var(--color-navy-dark);">
+            Human Thermal Stress Assessment <span style="font-size: 0.85rem; font-weight: normal; color: var(--color-text-muted);">(Heat Index-based estimate)</span>
+        </h3>
+        <p style="margin: 0; font-size: 0.825rem; color: var(--color-text-muted);">
+            Scientific note: This estimate reflects apparent temperature in shaded conditions based on NOAA/NWS Rothfusz formulations. It is <strong>not</strong> Wet Bulb Globe Temperature (WBGT) and does not quantify direct radiant solar heat load.
+        </p>
+    </div>
+
+    <!-- Live Telemetry or Explicit Error Panel -->
+    {% if weather_error %}
+        <div class="ui-state-box error-state" style="margin-top: 0; margin-bottom: 1.5rem;">
+            <h3>Live Telemetry Unavailable</h3>
+            <p>{{ weather_error }}</p>
+            <p style="font-size: 0.8rem; color: var(--color-text-muted);">
+                HeatGuard does not synthesize fallback values. Live metrics will appear when connectivity to the provider is restored.
+            </p>
+            <a href="{% url 'monitoring:city_dashboard' location_id=location.id %}" class="btn btn-secondary">Retry Telemetry Check</a>
+        </div>
+    {% elif live_weather %}
+        <!-- Responsive Telemetry Metrics Grid -->
+        <div class="grid-4" style="margin-bottom: 1.25rem;">
+            <!-- 1. Ambient Temperature -->
+            <div class="card" style="margin-bottom: 0; background: #f8fafc;">
+                <div class="form-label" style="display: flex; justify-content: space-between;">
+                    <span>Ambient Temp</span>
+                    <span class="tag-provenance">provider-supplied</span>
+                </div>
+                <div style="font-size: 1.8rem; font-weight: 700; color: var(--color-navy-dark);">
+                    {% if live_weather.current.temperature_c is not None %}
+                        {{ live_weather.current.temperature_c }} °C
+                    {% else %}
+                        <span style="font-size: 1rem; color: var(--color-text-muted);">Not available</span>
+                    {% endif %}
+                </div>
+                <div style="font-size: 0.775rem; color: var(--color-text-muted);">Dry-bulb air temperature</div>
+            </div>
+
+            <!-- 2. Relative Humidity -->
+            <div class="card" style="margin-bottom: 0; background: #f8fafc;">
+                <div class="form-label" style="display: flex; justify-content: space-between;">
+                    <span>Relative Humidity</span>
+                    <span class="tag-provenance">provider-supplied</span>
+                </div>
+                <div style="font-size: 1.8rem; font-weight: 700; color: var(--color-navy-dark);">
+                    {% if live_weather.current.relative_humidity is not None %}
+                        {{ live_weather.current.relative_humidity }}%
+                    {% else %}
+                        <span style="font-size: 1rem; color: var(--color-text-muted);">Not available</span>
+                    {% endif %}
+                </div>
+                <div style="font-size: 0.775rem; color: var(--color-text-muted);">Surface moisture (2m)</div>
+            </div>
+
+            <!-- 3. Provider Apparent Temp -->
+            <div class="card" style="margin-bottom: 0; background: #f8fafc;">
+                <div class="form-label" style="display: flex; justify-content: space-between;">
+                    <span>Provider Apparent</span>
+                    <span class="tag-provenance">provider-supplied</span>
+                </div>
+                <div style="font-size: 1.8rem; font-weight: 700; color: var(--color-navy-dark);">
+                    {% if live_weather.current.apparent_temperature_c is not None %}
+                        {{ live_weather.current.apparent_temperature_c }} °C
+                    {% else %}
+                        <span style="font-size: 1rem; color: var(--color-text-muted);">Not available</span>
+                    {% endif %}
+                </div>
+                <div style="font-size: 0.775rem; color: var(--color-text-muted);">Open-Meteo model index</div>
+            </div>
+
+            <!-- 4. Wind Speed -->
+            <div class="card" style="margin-bottom: 0; background: #f8fafc;">
+                <div class="form-label" style="display: flex; justify-content: space-between;">
+                    <span>Wind Speed</span>
+                    <span class="tag-provenance">provider-supplied</span>
+                </div>
+                <div style="font-size: 1.8rem; font-weight: 700; color: var(--color-navy-dark);">
+                    {% if live_weather.current.wind_speed_kmh is not None %}
+                        {{ live_weather.current.wind_speed_kmh }} km/h
+                    {% else %}
+                        <span style="font-size: 1rem; color: var(--color-text-muted);">Not available</span>
+                    {% endif %}
+                </div>
+                <div style="font-size: 0.775rem; color: var(--color-text-muted);">Standard 10m height</div>
+            </div>
+        </div>
+
+        <!-- Heat Index Estimate & Educational Risk Summary Card -->
+        <div class="card" style="background: #ffffff; border-left: 4px solid #f97316; margin-bottom: 1.25rem;">
+            <div class="grid-2">
+                <div>
+                    <div class="form-label" style="display: flex; align-items: baseline; gap: 0.5rem;">
+                        <span>Heat Index Apparent-Temperature</span>
+                        <span class="tag-provenance">application-calculated</span>
+                    </div>
+                    <div style="font-size: 2.2rem; font-weight: 800; color: #9a3412;">
+                        {% if hi_result.heat_index_c is not None %}
+                            {{ hi_result.heat_index_c }} °C
+                        {% else %}
+                            <span style="font-size: 1.2rem; color: var(--color-text-muted);">Not available</span>
+                        {% endif %}
+                    </div>
+                    <div style="font-size: 0.8rem; color: var(--color-text-muted);">
+                        Method: {{ hi_result.method_used|default:"NWS equation" }} &bull; Adjustment: {{ hi_result.adjustment_applied|default:"none" }}
+                    </div>
+                </div>
+
+                <div>
+                    <div class="form-label">Assigned Screening Category</div>
+                    <div style="margin: 0.35rem 0;">
+                        {% if hi_result %}
+                            <span class="badge {{ hi_result.risk.badge_class }}" style="font-size: 0.9rem; padding: 0.3rem 0.75rem;">
+                                {{ hi_result.risk.category }} &mdash; {{ hi_result.risk.label }}
+                            </span>
+                        {% else %}
+                            <span style="color: var(--color-text-muted);">Not available</span>
+                        {% endif %}
+                    </div>
+                    <div style="font-size: 0.85rem; color: var(--color-text-main); margin-top: 0.35rem;">
+                        <strong>Assessment:</strong> {{ hi_result.risk.description }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Short Explanation & Comprehensive Practical Safety Guidance -->
+            <div style="margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--color-border);">
+                <div style="font-size: 0.85rem; color: var(--color-text-main); margin-bottom: 0.5rem;">
+                    <strong>Why this category was assigned:</strong> {{ hi_result.explanation }}
+                </div>
+
+                {% if safety_guidance %}
+                    <div class="alert alert-info" style="margin-bottom: 0; font-size: 0.85rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.25rem;">
+                            <strong style="font-size: 0.95rem;">Recommended Precautions: {{ safety_guidance.headline }}</strong>
+                            <a href="{% url 'monitoring:safety_guidance' %}" style="font-size: 0.775rem; color: #1e40af; text-decoration: underline;">Full Health Guide &rarr;</a>
+                        </div>
+                        <ul style="margin: 0; padding-left: 1.25rem; font-size: 0.825rem; line-height: 1.5;">
+                            <li><strong>Hydration:</strong> {{ safety_guidance.hydration }}</li>
+                            <li><strong>Shade & Rest:</strong> {{ safety_guidance.shade_and_rest }}</li>
+                            <li><strong>Outdoor Strenuous Activity:</strong> {{ safety_guidance.outdoor_activity }}</li>
+                            <li><strong>Vulnerable Care:</strong> {{ safety_guidance.vulnerable_care }}</li>
+                            <li><strong>Heat-Illness Warning Signs:</strong> {{ safety_guidance.warning_signs }}</li>
+                        </ul>
+                        <div style="margin-top: 0.5rem; font-size: 0.775rem; color: #1e3a8a; border-top: 1px dashed #bfdbfe; padding-top: 0.35rem;">
+                            <strong>Emergency Notice:</strong> If anyone exhibits confusion, fainting, vomiting, or skin above 39.5°C, seek urgent local medical assistance (108/112/911) immediately.
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Data Source Attribution & Model Context Area -->
+        <div style="background: #f1f5f9; border: 1px solid var(--color-border); border-radius: 4px; padding: 0.75rem 1rem; font-size: 0.8rem; color: var(--color-text-muted); margin-bottom: 1.5rem;">
+            <div><strong>Source Attribution:</strong> {{ live_weather.attribution }}</div>
+            <div><strong>Model Context:</strong> {{ live_weather.model_context }}</div>
+            <div><strong>Provider Retrieval Timestamp:</strong> {{ live_weather.retrieved_at|date:"Y-m-d H:i:s" }} UTC</div>
+        </div>
+    {% endif %}
+
+    <!-- Relevant Published Official Notices Section -->
+    <div style="margin-top: 2rem;">
+        <div class="card-header" style="border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">
+            <h3 style="margin: 0; font-size: 1.15rem; color: var(--color-navy-dark);">
+                Published Official Notices & Bulletins for {{ location.name }}
+            </h3>
+            <span class="tag-provenance">officially published</span>
+        </div>
+
+        {% if notices %}
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Notice Headline</th>
+                            <th>Issuing Organization</th>
+                            <th>Severity Level</th>
+                            <th>Valid Period</th>
+                            <th>Public Link</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for notice in notices %}
+                            <tr>
+                                <td>
+                                    <strong>{{ notice.title }}</strong>
+                                    <div style="font-size: 0.8rem; color: var(--color-text-muted); margin-top: 0.2rem;">
+                                        {{ notice.message|truncatewords:20 }}
+                                    </div>
+                                </td>
+                                <td>{{ notice.issuing_organization }}</td>
+                                <td>
+                                    <span class="badge {% if notice.severity == 'EMERGENCY' %}risk-extreme{% elif notice.severity == 'WARNING' %}risk-very-high{% elif notice.severity == 'WATCH' %}risk-high{% else %}risk-moderate{% endif %}">
+                                        {{ notice.severity }}
+                                    </span>
+                                </td>
+                                <td>{{ notice.valid_from|date:"M d, H:i" }} &ndash; {{ notice.valid_until|date:"M d, H:i" }}</td>
+                                <td>
+                                    {% if notice.source_url %}
+                                        <a href="{{ notice.source_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">Source &nearr;</a>
+                                    {% else %}
+                                        <span style="color: var(--color-text-muted); font-size: 0.8rem;">Direct Release</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            {% include 'monitoring/partials/state_box.html' with title="No Active Official Notices" message="There are currently no active official meteorological or civil advisories published for this location." %}
+        {% endif %}
+    </div>
+
+    <!-- Historical Telemetry Ingestion Log -->
+    <div style="margin-top: 2rem;">
+        <h3 style="margin: 0 0 0.5rem; font-size: 1.15rem; color: var(--color-navy-dark);">
+            Recent Ingested Weather Records
+        </h3>
+        {% if recent_records %}
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Recorded Timestamp</th>
+                            <th>Temperature</th>
+                            <th>Humidity</th>
+                            <th>Heat Index</th>
+                            <th>Risk Assessment</th>
+                            <th>Data Provenance</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for rec in recent_records %}
+                            <tr>
+                                <td>{{ rec.recorded_at|date:"Y-m-d H:i" }} UTC</td>
+                                <td>{{ rec.temperature_c }} °C</td>
+                                <td>{{ rec.relative_humidity }}%</td>
+                                <td>{% if rec.heat_index_c is not None %}{{ rec.heat_index_c }} °C{% else %}Not available{% endif %}</td>
+                                <td>
+                                    <span class="badge {% if rec.risk_level == 'NORMAL' %}risk-low{% elif rec.risk_level == 'CAUTION' %}risk-moderate{% elif rec.risk_level == 'EXTREME_CAUTION' %}risk-high{% elif rec.risk_level == 'DANGER' %}risk-very-high{% else %}risk-extreme{% endif %}">
+                                        {{ rec.risk_level }}
+                                    </span>
+                                </td>
+                                <td><span class="tag-provenance">{{ rec.data_source }}</span></td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            {% include 'monitoring/partials/state_box.html' with title="No Logged Records" message="No previous observation records have been recorded for this station." %}
+        {% endif %}
+    </div>
+
+    <div style="margin-top: 2rem; display: flex; gap: 0.75rem; flex-wrap: wrap;">
+        <a href="{% url 'monitoring:city_search' %}" class="btn btn-secondary">&larr; Back to Station Directory</a>
+        <a href="{% url 'monitoring:forecast' %}?location_id={{ location.id }}" class="btn btn-primary">View Detailed Forecast</a>
+        <a href="{% url 'monitoring:city_comparison' %}" class="btn btn-secondary">Compare Stations</a>
+    </div>
+</div>
+{% endblock %}

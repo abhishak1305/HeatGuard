@@ -1,0 +1,135 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ action_title }} - HeatGuard Staff{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 760px; margin: 0 auto;">
+    <div class="card-header">
+        <div>
+            <h2 style="margin: 0; font-size: 1.4rem; color: var(--color-navy-dark);">{{ action_title }}</h2>
+            <div style="font-size: 0.85rem; color: var(--color-text-muted); margin-top: 0.2rem;">
+                Official Notice Management (Staff Verified Workflow)
+            </div>
+        </div>
+        <span class="tag-provenance">staff-verified</span>
+    </div>
+
+    <div class="alert alert-warning" style="font-size: 0.85rem; margin-bottom: 1.5rem;">
+        <strong>Staff Verification Requirement:</strong>
+        To prevent misinformation, an Official Notice can only be published if you supply a verified issuing authority, valid dates, and an authentic official source URL.
+    </div>
+
+    <form method="post" action="" novalidate>
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+            <div class="alert alert-danger">
+                {% for err in form.non_field_errors %}
+                    <div>{{ err }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <div class="form-group">
+            <label for="{{ form.location.id_for_label }}" class="form-label">Target Monitoring Location *</label>
+            {{ form.location }}
+            {% if form.location.errors %}
+                <div style="color: #dc2626; font-size: 0.825rem; margin-top: 0.25rem;">
+                    {{ form.location.errors.0 }}
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label for="{{ form.title.id_for_label }}" class="form-label">Notice Headline / Title *</label>
+            {{ form.title }}
+            {% if form.title.errors %}
+                <div style="color: #dc2626; font-size: 0.825rem; margin-top: 0.25rem;">
+                    {{ form.title.errors.0 }}
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="grid-2">
+            <div class="form-group">
+                <label for="{{ form.severity.id_for_label }}" class="form-label">Severity Level *</label>
+                {{ form.severity }}
+                {% if form.severity.errors %}
+                    <div style="color: #dc2626; font-size: 0.825rem; margin-top: 0.25rem;">
+                        {{ form.severity.errors.0 }}
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.issuing_organization.id_for_label }}" class="form-label">Issuing Authority / Agency *</label>
+                {{ form.issuing_organization }}
+                {% if form.issuing_organization.errors %}
+                    <div style="color: #dc2626; font-size: 0.825rem; margin-top: 0.25rem;">
+                        {{ form.issuing_organization.errors.0 }}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="{{ form.source_url.id_for_label }}" class="form-label">Official Source Bulletin URL *</label>
+            {{ form.source_url }}
+            <div style="font-size: 0.775rem; color: var(--color-text-muted); margin-top: 0.2rem;">
+                {{ form.source_url.help_text }}
+            </div>
+            {% if form.source_url.errors %}
+                <div style="color: #dc2626; font-size: 0.825rem; margin-top: 0.25rem;">
+                    {{ form.source_url.errors.0 }}
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="grid-2">
+            <div class="form-group">
+                <label for="{{ form.valid_from.id_for_label }}" class="form-label">Valid From (Start Time) *</label>
+                {{ form.valid_from }}
+                {% if form.valid_from.errors %}
+                    <div style="color: #dc2626; font-size: 0.825rem; margin-top: 0.25rem;">
+                        {{ form.valid_from.errors.0 }}
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.valid_until.id_for_label }}" class="form-label">Valid Until (Expiration Time) *</label>
+                {{ form.valid_until }}
+                {% if form.valid_until.errors %}
+                    <div style="color: #dc2626; font-size: 0.825rem; margin-top: 0.25rem;">
+                        {{ form.valid_until.errors.0 }}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="{{ form.message.id_for_label }}" class="form-label">Advisory Directives & Message Body *</label>
+            {{ form.message }}
+            {% if form.message.errors %}
+                <div style="color: #dc2626; font-size: 0.825rem; margin-top: 0.25rem;">
+                    {{ form.message.errors.0 }}
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="form-group" style="display: flex; align-items: center;">
+            {{ form.is_published }}
+            <label for="{{ form.is_published.id_for_label }}" style="margin: 0; font-size: 0.9rem; font-weight: 500;">
+                Publish Notice Immediately (Make publicly visible)
+            </label>
+        </div>
+
+        <div style="margin-top: 1.5rem; display: flex; gap: 0.75rem;">
+            <button type="submit" class="btn btn-primary">
+                {% if is_edit %}Save Changes{% else %}Publish Official Notice{% endif %}
+            </button>
+            <a href="{% url 'monitoring:notice_list' %}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

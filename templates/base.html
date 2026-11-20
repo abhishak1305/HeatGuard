@@ -1,0 +1,99 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}HeatGuard - Environmental Heatwave Warning System{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <header class="app-header">
+        <div class="header-top">
+            <div class="brand-container">
+                <a href="{% url 'monitoring:home' %}" class="brand-title">HeatGuard</a>
+                <span class="brand-subtitle">Human Thermal Stress Monitoring System</span>
+            </div>
+            <div class="header-status">
+                <span class="tag-provenance">Educational Prototype</span>
+            </div>
+        </div>
+        <nav class="app-nav">
+            <div class="nav-container">
+                <ul class="nav-links">
+                    <li><a href="{% url 'monitoring:home' %}" class="nav-link {% if request.resolver_match.url_name == 'home' %}active{% endif %}">Home</a></li>
+                    <li><a href="{% url 'monitoring:city_search' %}" class="nav-link {% if request.resolver_match.url_name == 'city_search' or request.resolver_match.url_name == 'city_dashboard' %}active{% endif %}">Monitor</a></li>
+                    <li><a href="{% url 'monitoring:forecast' %}" class="nav-link {% if request.resolver_match.url_name == 'forecast' %}active{% endif %}">Forecast</a></li>
+                    <li><a href="{% url 'monitoring:city_comparison' %}" class="nav-link {% if request.resolver_match.url_name == 'city_comparison' %}active{% endif %}">Compare</a></li>
+                    <li><a href="{% url 'monitoring:safety_guidance' %}" class="nav-link {% if request.resolver_match.url_name == 'safety_guidance' %}active{% endif %}">Safety Guidance</a></li>
+                    <li><a href="{% url 'monitoring:notice_list' %}" class="nav-link {% if request.resolver_match.url_name == 'notice_list' %}active{% endif %}">Notices</a></li>
+                    {% if user.is_authenticated and user.is_staff or user.is_authenticated and perms.monitoring.view_officialnotice %}
+                        <li><a href="{% url 'monitoring:staff_dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'staff_dashboard' %}active{% endif %}">Staff Console</a></li>
+                    {% endif %}
+                </ul>
+                <ul class="nav-auth">
+                    <li style="display: flex; align-items: center; margin-right: 0.5rem; font-size: 0.8rem; color: var(--color-navy-dark);">
+                        <span style="margin-right: 0.35rem;">Units:</span>
+                        <a href="{% url 'monitoring:set_temperature_unit' %}?unit=C" style="font-weight: {% if request.COOKIES.heatguard_temp_unit != 'F' %}bold{% else %}normal{% endif %}; text-decoration: none; color: inherit;">°C</a>
+                        <span style="margin: 0 0.2rem;">|</span>
+                        <a href="{% url 'monitoring:set_temperature_unit' %}?unit=F" style="font-weight: {% if request.COOKIES.heatguard_temp_unit == 'F' %}bold{% else %}normal{% endif %}; text-decoration: none; color: inherit;">°F</a>
+                    </li>
+                    {% if user.is_authenticated %}
+                        <li><a href="{% url 'monitoring:profile' %}" class="nav-link {% if request.resolver_match.url_name == 'profile' %}active{% endif %}">{{ user.username }}</a></li>
+                        <li>
+                            <form method="post" action="{% url 'monitoring:logout' %}" style="display: inline; margin: 0; padding: 0;">
+                                {% csrf_token %}
+                                <button type="submit" class="nav-link" style="background: none; border: none; cursor: pointer; font-family: inherit;">Sign Out</button>
+                            </form>
+                        </li>
+                    {% else %}
+                        <li><a href="{% url 'monitoring:login' %}" class="nav-link {% if request.resolver_match.url_name == 'login' %}active{% endif %}">Login</a></li>
+                        <li><a href="{% url 'monitoring:register' %}" class="nav-link {% if request.resolver_match.url_name == 'register' %}active{% endif %}">Register</a></li>
+                    {% endif %}
+                </ul>
+            </div>
+        </nav>
+    </header>
+
+    <aside class="disclaimer-banner" role="complementary" aria-label="System Notice">
+        <strong>Advisory & Disclaimer:</strong> HeatGuard is an educational monitoring prototype. It does not provide official medical diagnoses, legal heat warnings, or statutory emergency response directives.
+    </aside>
+
+    {% if messages %}
+        <div style="max-width: 1120px; margin: 1rem auto 0; padding: 0 1.25rem;">
+            {% for msg in messages %}
+                <div class="alert {% if msg.tags == 'error' %}alert-danger{% elif msg.tags == 'success' %}alert-success{% else %}alert-info{% endif %}" role="alert">
+                    {{ msg }}
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <main class="app-main" id="main-content">
+        {% block content %}
+        {% endblock %}
+    </main>
+
+    <footer class="app-footer">
+        <div class="footer-container">
+            <div>
+                <p style="margin: 0 0 0.4rem; font-weight: 600; color: var(--color-navy-dark);">HeatGuard Environmental Platform</p>
+                <p style="margin: 0; font-size: 0.825rem;">
+                    &copy; 2026 HeatGuard Project &bull; Classroom Environmental Prototype &bull; Built strictly with Django standard components.
+                </p>
+            </div>
+            <nav aria-label="Footer Navigation">
+                <ul class="footer-nav">
+                    <li><a href="{% url 'monitoring:home' %}#about">About</a></li>
+                    <li><a href="{% url 'monitoring:home' %}#methodology">Methodology</a></li>
+                    <li><a href="{% url 'monitoring:home' %}#data-sources">Data Sources</a></li>
+                    <li><a href="{% url 'monitoring:safety_guidance' %}">Safety Guidance</a></li>
+                    <li><a href="{% url 'monitoring:notice_list' %}">Official Bulletins</a></li>
+                </ul>
+            </nav>
+        </div>
+    </footer>
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>

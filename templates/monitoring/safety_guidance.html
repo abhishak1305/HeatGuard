@@ -1,0 +1,123 @@
+{% extends 'base.html' %}
+
+{% block title %}Public Heat Safety & Health Guidance - HeatGuard{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <div>
+            <h2 style="margin: 0; font-size: 1.5rem; color: var(--color-navy-dark);">
+                Public Heat Safety & Thermal Health Guidance
+            </h2>
+            <div style="font-size: 0.9rem; color: var(--color-text-muted); margin-top: 0.2rem;">
+                Evidence-informed precautions for hot weather, vulnerable groups, and occupational settings
+            </div>
+        </div>
+        <span class="tag-provenance">public-health-guidance</span>
+    </div>
+
+    <!-- Critical Non-Diagnostic Medical Notice & Emergency Directive -->
+    <div class="alert alert-danger" style="margin-bottom: 1.75rem; font-size: 0.875rem;">
+        <h4 style="margin: 0 0 0.35rem; color: #991b1b; font-size: 1rem;">
+            Emergency Medical Notice & Critical Warning Signs
+        </h4>
+        <p style="margin: 0 0 0.5rem;">
+            HeatGuard provides educational information and does <strong>not</strong> provide personalized medical advice or clinical diagnoses.
+            If you or someone around you exhibits signs of severe heat illness &mdash; including:
+            <strong>body temperature over 39.5°C (103°F)</strong>, <strong>loss of consciousness</strong>,
+            <strong>confusion or slurred speech</strong>, <strong>vomiting</strong>, or <strong>hot, red, dry skin</strong> &mdash;
+            <strong>CALL LOCAL EMERGENCY SERVICES (e.g. 108 / 112 / 911) IMMEDIATELY</strong>.
+        </p>
+        <p style="margin: 0; font-size: 0.825rem; color: #7f1d1d;">
+            While awaiting emergency personnel: move the person into shade or air conditioning, loosen tight clothing, and apply cool, damp cloths or ice packs to the neck, armpits, and groin. Do NOT force liquids on an unconscious person.
+        </p>
+    </div>
+
+    <!-- Tiered Guidance by HeatGuard Risk Category -->
+    <div style="margin-bottom: 2rem;">
+        <h3 style="margin: 0 0 0.75rem; font-size: 1.2rem; color: var(--color-navy-dark);">
+            Precautions by HeatGuard Risk Category
+        </h3>
+        <p style="font-size: 0.85rem; color: var(--color-text-muted); margin: 0 0 1.25rem;">
+            Review protective steps aligned with the Heat Index-based apparent temperature screening levels.
+        </p>
+
+        <div class="grid-2">
+            {% for cat_key, guide in category_guidance.items %}
+                <div class="card" style="margin-bottom: 0; border-top: 3px solid {% if cat_key == 'NORMAL' %}#10b981{% elif cat_key == 'CAUTION' %}#f59e0b{% elif cat_key == 'EXTREME_CAUTION' %}#f97316{% elif cat_key == 'DANGER' %}#dc2626{% else %}#7f1d1d{% endif %};">
+                    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.5rem;">
+                        <h4 style="margin: 0; font-size: 1.05rem; color: var(--color-navy-dark);">{{ guide.headline }}</h4>
+                        <span class="badge {% if cat_key == 'NORMAL' %}risk-low{% elif cat_key == 'CAUTION' %}risk-moderate{% elif cat_key == 'EXTREME_CAUTION' %}risk-high{% elif cat_key == 'DANGER' %}risk-very-high{% else %}risk-extreme{% endif %}">
+                            {{ cat_key }}
+                        </span>
+                    </div>
+                    <p style="font-size: 0.825rem; color: var(--color-text-muted); margin: 0 0 0.75rem;">
+                        {{ guide.summary }}
+                    </p>
+                    <ul style="font-size: 0.825rem; margin: 0; padding-left: 1.2rem; color: var(--color-text-main);">
+                        <li style="margin-bottom: 0.35rem;"><strong>Hydration:</strong> {{ guide.hydration }}</li>
+                        <li style="margin-bottom: 0.35rem;"><strong>Shade & Rest:</strong> {{ guide.shade_and_rest }}</li>
+                        <li style="margin-bottom: 0.35rem;"><strong>Outdoor Work:</strong> {{ guide.outdoor_activity }}</li>
+                        <li style="margin-bottom: 0.35rem;"><strong>Vulnerable Care:</strong> {{ guide.vulnerable_care }}</li>
+                        <li><strong>Warning Signs:</strong> {{ guide.warning_signs }}</li>
+                    </ul>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Targeted Guidance for Vulnerable Groups -->
+    <div style="margin-bottom: 2rem;">
+        <h3 style="margin: 0 0 0.75rem; font-size: 1.2rem; color: var(--color-navy-dark);">
+            Protective Recommendations for High-Risk Groups
+        </h3>
+        <div class="grid-2">
+            {% for group in group_guidance %}
+                <div class="card" style="margin-bottom: 0; background: #f8fafc;">
+                    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.5rem;">
+                        <h4 style="margin: 0; font-size: 1.05rem; color: var(--color-navy-dark);">{{ group.group_name }}</h4>
+                        <span class="tag-provenance">{{ group.badge }}</span>
+                    </div>
+                    <ul style="font-size: 0.825rem; margin: 0 0 0.75rem; padding-left: 1.2rem; color: var(--color-text-main);">
+                        {% for pt in group.key_points %}
+                            <li style="margin-bottom: 0.35rem;">{{ pt }}</li>
+                        {% endfor %}
+                    </ul>
+                    <div style="font-size: 0.8rem; background: #ffffff; border: 1px solid var(--color-border); border-radius: 4px; padding: 0.5rem 0.75rem; color: #475569;">
+                        <strong>Key Priority:</strong> {{ group.emergency_action }}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Reliable Official Public Health Resources -->
+    <div style="margin-top: 2rem;">
+        <h3 style="margin: 0 0 0.75rem; font-size: 1.2rem; color: var(--color-navy-dark);">
+            Official Public Health Authorities & Resources
+        </h3>
+        <p style="font-size: 0.85rem; color: var(--color-text-muted); margin: 0 0 1rem;">
+            Consult recognized global and national health organizations for clinical protocols, regional action plans, and official alerts:
+        </p>
+
+        <div class="grid-2">
+            {% for resource in health_resources %}
+                <div style="background: #ffffff; border: 1px solid var(--color-border); border-radius: 6px; padding: 1rem;">
+                    <div style="font-weight: 600; font-size: 0.95rem; color: var(--color-navy-dark);">{{ resource.agency }}</div>
+                    <div style="font-size: 0.85rem; color: var(--color-text-muted); margin: 0.25rem 0 0.5rem;">
+                        {{ resource.description }}
+                    </div>
+                    <a href="{{ resource.url }}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">
+                        {{ resource.title }} &nearr;
+                    </a>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div style="margin-top: 2rem; display: flex; gap: 0.75rem;">
+        <a href="{% url 'monitoring:home' %}" class="btn btn-secondary">&larr; Back to Home</a>
+        <a href="{% url 'monitoring:city_search' %}" class="btn btn-primary">Monitor a City</a>
+    </div>
+</div>
+{% endblock %}

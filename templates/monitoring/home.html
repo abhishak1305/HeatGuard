@@ -1,0 +1,184 @@
+{% extends 'base.html' %}
+
+{% block title %}HeatGuard - Understand Heat. Prepare Earlier.{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero-section" aria-labelledby="hero-title">
+    <h2 id="hero-title" class="hero-heading">Understand Heat. Prepare Earlier.</h2>
+    <p class="hero-subtext">
+        HeatGuard calculates human thermal stress estimates using temperature and relative humidity, tracks multi-day weather outlooks, and centralizes published heatwave notices.
+    </p>
+
+    <form method="get" action="{% url 'monitoring:city_search' %}" class="hero-search-form" novalidate>
+        <div style="flex: 1;">
+            {{ form.city }}
+        </div>
+        <button type="submit" class="btn btn-accent">Monitor City</button>
+    </form>
+    <p class="hero-hint">Search for registered stations by name (e.g. Central, Coastal, Capital) to view localized telemetry.</p>
+</section>
+
+<!-- Core Product Pillars -->
+<section class="card" aria-labelledby="pillars-title" id="about">
+    <div class="card-header">
+        <h3 id="pillars-title">Thermal Stress Monitoring Framework</h3>
+        <span class="tag-provenance">application-calculated</span>
+    </div>
+    <div class="grid-3">
+        <div>
+            <h4 style="margin: 0 0 0.5rem; color: var(--color-navy-dark);">Current Conditions</h4>
+            <p style="font-size: 0.9rem; color: var(--color-text-muted); margin: 0;">
+                Calculates the estimated Heat Index from ambient air temperature and relative humidity using the standard NOAA Rothfusz regression equation.
+            </p>
+        </div>
+        <div>
+            <h4 style="margin: 0 0 0.5rem; color: var(--color-navy-dark);">Forecast-Based Estimates</h4>
+            <p style="font-size: 0.9rem; color: var(--color-text-muted); margin: 0;">
+                Reviews upcoming multi-day meteorological patterns from Open-Meteo to anticipate rising humidity and temperature extremes before they peak.
+            </p>
+        </div>
+        <div>
+            <h4 style="margin: 0 0 0.5rem; color: var(--color-navy-dark);">Official Advisories</h4>
+            <p style="font-size: 0.9rem; color: var(--color-text-muted); margin: 0;">
+                Centralizes published meteorological advisories, health alerts, and emergency bulletins issued by recognized meteorological departments.
+            </p>
+        </div>
+    </div>
+</section>
+
+<!-- Feature Cards -->
+<section style="margin-bottom: 2rem;" aria-labelledby="features-title">
+    <h3 id="features-title" style="margin-bottom: 1rem; color: var(--color-navy-dark);">Platform Capabilities</h3>
+    <div class="grid-3">
+        <div class="card" style="margin-bottom: 0;">
+            <div class="card-header">
+                <h4 style="margin: 0;">City Monitoring</h4>
+            </div>
+            <p style="font-size: 0.875rem; color: var(--color-text-muted);">
+                Detailed telemetry dashboard tracking localized ground observations and temporal humidity shifts.
+            </p>
+            <a href="{% url 'monitoring:city_search' %}" class="btn btn-secondary" style="margin-top: 0.5rem;">Access Stations</a>
+        </div>
+
+        <div class="card" style="margin-bottom: 0;">
+            <div class="card-header">
+                <h4 style="margin: 0;">Heat Index Estimate</h4>
+            </div>
+            <p style="font-size: 0.875rem; color: var(--color-text-muted);">
+                Estimates "apparent temperature" to quantify how warm environmental moisture makes the air feel to the human body.
+            </p>
+            <a href="{% url 'monitoring:city_search' %}" class="btn btn-secondary" style="margin-top: 0.5rem;">Search Station Metric</a>
+        </div>
+
+        <div class="card" style="margin-bottom: 0;">
+            <div class="card-header">
+                <h4 style="margin: 0;">Forecast Outlook</h4>
+            </div>
+            <p style="font-size: 0.875rem; color: var(--color-text-muted);">
+                24 to 72-hour thermal outlook trends to assist community planners and outdoor workers in scheduling activities safely.
+            </p>
+            <a href="{% url 'monitoring:forecast' %}" class="btn btn-secondary" style="margin-top: 0.5rem;">Inspect Forecast</a>
+        </div>
+
+        <div class="card" style="margin-bottom: 0;">
+            <div class="card-header">
+                <h4 style="margin: 0;">Safety Guidance</h4>
+            </div>
+            <p style="font-size: 0.875rem; color: var(--color-text-muted);">
+                Standard risk category indicators (Low, Moderate, High, Very High, Extreme) linked to hydration and shade recommendations.
+            </p>
+            <a href="{% url 'monitoring:city_comparison' %}" class="btn btn-secondary" style="margin-top: 0.5rem;">Compare Risk Levels</a>
+        </div>
+
+        <div class="card" style="margin-bottom: 0;">
+            <div class="card-header">
+                <h4 style="margin: 0;">Official Notices</h4>
+            </div>
+            <p style="font-size: 0.875rem; color: var(--color-text-muted);">
+                Transparent bulletin feed for authorized civil protection agencies and public meteorological agencies.
+            </p>
+            <a href="{% url 'monitoring:notice_list' %}" class="btn btn-secondary" style="margin-top: 0.5rem;">Browse Bulletins</a>
+        </div>
+
+        <div class="card" style="margin-bottom: 0; background-color: #f8fafc;">
+            <div class="card-header">
+                <h4 style="margin: 0;">Account Features</h4>
+            </div>
+            <p style="font-size: 0.875rem; color: var(--color-text-muted);">
+                Registered users can bookmark favorite stations and record localized observation reports.
+            </p>
+            <a href="{% url 'monitoring:register' %}" class="btn btn-primary" style="margin-top: 0.5rem;">Register Free</a>
+        </div>
+    </div>
+</section>
+
+<!-- How It Works Section -->
+<section class="card" aria-labelledby="workflow-title">
+    <div class="card-header">
+        <h3 id="workflow-title">How It Works: From Telemetry to Public Guidance</h3>
+    </div>
+    <div class="grid-4">
+        <div class="step-card">
+            <span class="step-number">1</span>
+            <h4>Weather Telemetry</h4>
+            <p>Temperature and relative humidity readings are ingested from Open-Meteo or entered by registered observers.</p>
+        </div>
+        <div class="step-card">
+            <span class="step-number">2</span>
+            <h4>Heat Index Model</h4>
+            <p>The application computes the Rothfusz regression equation to calculate the estimated apparent temperature.</p>
+        </div>
+        <div class="step-card">
+            <span class="step-number">3</span>
+            <h4>Risk Classification</h4>
+            <p>The calculated thermal index is mapped to standard advisory risk tiers (Caution, Danger, Extreme Danger).</p>
+        </div>
+        <div class="step-card">
+            <span class="step-number">4</span>
+            <h4>Early Preparedness</h4>
+            <p>Users and community operators review actionable precautions, hydration guidelines, and published alerts.</p>
+        </div>
+    </div>
+</section>
+
+<!-- Methodology & Limitations Disclaimer -->
+<section class="card" id="methodology" aria-labelledby="methodology-title">
+    <div class="card-header">
+        <h3 id="methodology-title">Methodology, Scientific Scope & Limitations</h3>
+        <span class="tag-provenance">educational</span>
+    </div>
+    <div style="font-size: 0.9rem; color: var(--color-text-main);">
+        <p>
+            <strong>Heat Index vs. Wet Bulb Globe Temperature (WBGT):</strong>
+            HeatGuard calculates the National Oceanic and Atmospheric Administration (NOAA) Heat Index, an apparent temperature metric based on air temperature and relative humidity measured in shaded conditions with light air movement. The Heat Index is <em>not</em> Wet Bulb Globe Temperature (WBGT), which directly integrates solar radiation, angle of the sun, and wind speed.
+        </p>
+        <p>
+            <strong>Applicability Bounds:</strong>
+            The Rothfusz regression formula is scientifically valid for air temperatures of $26.7^\circ\text{C}$ ($80^\circ\text{F}$) or higher and relative humidity of 40% or higher. Below these ranges, environmental moisture does not produce compounding thermal stress.
+        </p>
+        <div class="alert alert-warning" style="margin-bottom: 0;">
+            <strong>Important Legal & Medical Disclaimer:</strong>
+            HeatGuard is an educational classroom project. Calculated estimates and visual risk levels do <strong>not</strong> constitute medical diagnoses, clinical determinations of personal heat vulnerability, or official government disaster declarations. Always heed directions from local emergency services and public health authorities.
+        </div>
+    </div>
+</section>
+
+<!-- Data Sources & Attribution -->
+<section class="card" id="data-sources" aria-labelledby="sources-title">
+    <div class="card-header">
+        <h3 id="sources-title">Data Sources & Attribution</h3>
+    </div>
+    <ul style="margin: 0; padding-left: 1.25rem; font-size: 0.9rem; color: var(--color-text-muted);">
+        <li style="margin-bottom: 0.5rem;">
+            <strong>Numerical Weather Integration:</strong> <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer" style="color: #0f172a; font-weight: 500;">Open-Meteo Weather API</a> (under CC BY 4.0 license, queried via Python standard-library <code>urllib</code>).
+        </li>
+        <li style="margin-bottom: 0.5rem;">
+            <strong>Thermal Index Formulations:</strong> United States National Weather Service (NWS) / NOAA Technical Report SR 90-23 (Rothfusz, 1990).
+        </li>
+        <li>
+            <strong>Data Provenance Tracking:</strong> Every record in HeatGuard is strictly categorized into <code>provider-supplied</code>, <code>user-entered</code>, <code>application-calculated</code>, <code>officially published</code>, or <code>test-only</code>.
+        </li>
+    </ul>
+</section>
+{% endblock %}
