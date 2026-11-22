@@ -2,6 +2,7 @@ import json
 from decimal import Decimal
 from unittest.mock import patch
 from django.test import TestCase, Client
+from django.core.cache import cache
 from django.urls import reverse
 from django.utils import timezone
 
@@ -19,6 +20,7 @@ class ForecastPageTestCase(TestCase):
     """
 
     def setUp(self):
+        cache.clear()
         self.client = Client()
         self.location = Location.objects.create(
             name="Jaipur Observatory",
@@ -182,3 +184,129 @@ class ForecastPageTestCase(TestCase):
         self.assertContains(response, "Forecast-Based Heat-Risk Outlook")
         self.assertContains(response, "an official government heatwave declaration")
         self.assertContains(response, "review official meteorological bulletins")
+
+    @patch('monitoring.views.fetch_weather_forecast')
+    def test_forecast_excludes_hours_before_provider_now(self, mock_fetch):
+        """
+        Regression test: the provider returns hours from the start of the day,
+        so the page must drop past hours and only show the upcoming 24 hours.
+        """
+        def hourly_entry(time_str, temp, rh):
+            return {
+                'time': time_str,
+                'temperature_c': Decimal(temp),
+                'relative_humidity': Decimal(rh),
+                'apparent_temperature_c': None,
+                'wind_speed_kmh': None,
+            }
+
+        mock_fetch.return_value = {
+            'provider': "Open-Meteo",
+            'model_context': "Numerical weather prediction model output",
+            'retrieved_at': timezone.now(),
+            'latitude': 26.91,
+            'longitude': 75.79,
+            'timezone': "Asia/Kolkata",
+            'timezone_abbreviation': "IST",
+            'current': {
+                'time': "2026-11-20T12:00",
+                'temperature_c': Decimal("30.0"),
+                'relative_humidity': Decimal("40.0"),
+                'apparent_temperature_c': None,
+                'wind_speed_kmh': None,
+            },
+            'hourly': [
+                hourly_entry("2026-11-20T06:00", "22.0", "30.0"),  # past
+                hourly_entry("2026-11-20T11:00", "28.0", "35.0"),  # past
+                hourly_entry("2026-11-20T12:00", "30.0", "40.0"),  # now
+                hourly_entry("2026-11-20T14:00", "36.0", "45.0"),  # future (hottest)
+            ],
+            'daily': [],
+            'attribution': "Weather data by Open-Meteo.com",
+        }
+
+        url = reverse('monitoring:forecast') + f'?location_id={self.location.id}'
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        processed = response.context['processed_hourly']
+        times = [item['time'] for item in processed]
+        self.assertEqual(
+            times,
+            ["2026-11-20T12:00", "2026-11-20T14:00"],
+            "Past hourly entries must be excluded from the forecast window",
+        )
+        # Hottest hour must come from the remaining (future) window
+        self.assertEqual(response.context['hottest_hour']['time'], "2026-11-20T14:00")
+        self.assertNotContains(response, "2026-11-20T06:00")
+
+    @patch('monitoring.views.fetch_weather_forecast')
+    def test_forecast_provider_error_does_not_expose_exception(self, mock_fetch):
+        mock_fetch.side_effect = WeatherNetworkError("private gateway hostname and token")
+        url = reverse('monitoring:forecast') + f'?location_id={self.location.id}'
+
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Forecast telemetry is currently unavailable")
+        self.assertNotContains(response, "private gateway hostname and token")
+
+    @patch('monitoring.views.fetch_weather_forecast')
+    def test_forecast_window_uses_timezone_aware_instants_and_separate_peaks(self, mock_fetch):
+        mock_fetch.return_value = {
+            'provider': 'Open-Meteo',
+            'retrieved_at': timezone.now(),
+            'timezone': 'Asia/Kolkata',
+            'timezone_abbreviation': 'IST',
+            'current': {
+                'time': '2026-11-20T12:00',
+                'temperature_c': Decimal('30'),
+                'relative_humidity': Decimal('50'),
+            },
+            'hourly': [
+                {'time': '2026-11-20T06:29:00Z', 'temperature_c': Decimal('50'), 'relative_humidity': Decimal('50')},
+                {'time': '2026-11-20T12:00', 'temperature_c': Decimal('35'), 'relative_humidity': Decimal('50')},
+                {'time': '2026-11-20T14:00', 'temperature_c': Decimal('34'), 'relative_humidity': Decimal('100')},
+                {'time': '2026-11-20T12:30', 'temperature_c': None, 'relative_humidity': Decimal('90')},
+                {'time': '2026-11-21T06:30:00Z', 'temperature_c': Decimal('60'), 'relative_humidity': Decimal('90')},
+                {'time': 'not-a-time', 'temperature_c': Decimal('70'), 'relative_humidity': Decimal('90')},
+            ],
+            'daily': [],
+        }
+        url = reverse('monitoring:forecast') + f'?location_id={self.location.pk}'
+
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        hourly = response.context['processed_hourly']
+        self.assertEqual(
+            [item['time'] for item in hourly],
+            ['2026-11-20T12:00', '2026-11-20T12:30', '2026-11-20T14:00'],
+        )
+        self.assertIsNone(hourly[1]['heat_index'])
+        self.assertEqual(response.context['hottest_hour']['temperature_c'], Decimal('35'))
+        self.assertEqual(
+            response.context['peak_heat_index_hour']['temperature_c'], Decimal('34')
+        )
+        self.assertNotContains(response, '2026-11-20T06:29:00Z')
+        self.assertNotContains(response, '2026-11-21T06:30:00Z')
+        self.assertContains(response, 'Peak Heat Index:')
+
+    @patch('monitoring.views.fetch_weather_forecast')
+    def test_forecast_temperatures_use_fahrenheit_preference(self, mock_fetch):
+        mock_fetch.return_value = {
+            'retrieved_at': timezone.now(),
+            'timezone': 'Asia/Kolkata',
+            'current': {'time': '2026-11-20T12:00', 'temperature_c': Decimal('30'), 'relative_humidity': Decimal('50')},
+            'hourly': [
+                {'time': '2026-11-20T12:00', 'temperature_c': Decimal('30'), 'relative_humidity': Decimal('50')},
+            ],
+            'daily': [],
+        }
+        self.client.cookies['heatguard_temp_unit'] = 'F'
+        url = reverse('monitoring:forecast') + f'?location_id={self.location.pk}'
+
+        response = self.client.get(url)
+
+        self.assertContains(response, '86.0 °F')
+        self.assertNotContains(response, '30.0 °C')

@@ -1,19 +1,23 @@
 from decimal import Decimal
 from unittest.mock import patch
 from django.test import TestCase, Client
+from django.core.cache import cache
 from django.urls import reverse
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.db.utils import IntegrityError
 from django.utils import timezone
 from datetime import timedelta
 
 from .models import Location, WeatherRecord, OfficialNotice, SavedLocation
 from .forms import CitySearchForm
+from .services import create_location_from_candidate, resolve_or_create_location
 
 
 class NavigationAndViewsTestCase(TestCase):
     def setUp(self):
+        cache.clear()
         self.client = Client()
         self.location = Location.objects.create(
             name="Central Urban Core",
@@ -30,6 +34,40 @@ class NavigationAndViewsTestCase(TestCase):
             longitude=Decimal("72.83470")
         )
 
+    @patch('monitoring.services.geocode_city')
+    def test_city_comparison_keeps_nearby_distinct_provider_location(self, mock_geocode):
+        candidate = {
+            'name': 'East Campus', 'state_or_region': 'Metro Region', 'country': 'Country A',
+            'latitude': Decimal('28.61400'), 'longitude': Decimal('77.21000'),
+        }
+        mock_geocode.return_value = [candidate]
+        before = Location.objects.count()
+
+        resolved, error = resolve_or_create_location('East Campus')
+
+        self.assertIsNone(error)
+        self.assertEqual(resolved.name, 'East Campus')
+        self.assertIsNone(resolved.pk)
+        self.assertEqual(Location.objects.count(), before)
+
+    def test_candidate_creation_deduplicates_exact_identity_but_not_nearby_other_city(self):
+        exact = create_location_from_candidate({
+            'name': self.location.name,
+            'state_or_region': self.location.state_or_region,
+            'country': self.location.country,
+            'latitude': self.location.latitude,
+            'longitude': self.location.longitude,
+        })
+        self.assertEqual(exact.pk, self.location.pk)
+
+        nearby = create_location_from_candidate({
+            'name': 'East Campus', 'state_or_region': self.location.state_or_region,
+            'country': self.location.country, 'latitude': Decimal('28.61400'),
+            'longitude': Decimal('77.21000'),
+        })
+        self.assertNotEqual(nearby.pk, self.location.pk)
+        self.assertEqual(nearby.name, 'East Campus')
+
     def test_home_view(self):
         url = reverse('monitoring:home')
         response = self.client.get(url)
@@ -38,6 +76,14 @@ class NavigationAndViewsTestCase(TestCase):
         self.assertContains(response, "Thermal Stress Monitoring Framework")
         self.assertContains(response, "Methodology, Scientific Scope & Limitations")
         self.assertContains(response, "Data Sources & Attribution")
+        self.assertContains(
+            response,
+            f'href="{reverse("monitoring:safety_guidance")}" class="btn btn-secondary" style="margin-top: 0.5rem;">View Safety Guidance',
+        )
+        self.assertContains(response, "Normal, Caution, Extreme Caution, Danger, and Extreme Danger")
+        self.assertNotContains(response, "registered observers")
+        self.assertNotContains(response, "\\(")
+        self.assertNotContains(response, "\\)")
         self.assertTemplateUsed(response, 'monitoring/home.html')
         self.assertTemplateUsed(response, 'base.html')
 
@@ -83,12 +129,12 @@ class NavigationAndViewsTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'value="Z"')
 
-    def test_city_search_redirects_on_valid_match_with_spaces_and_case(self):
+    def test_city_search_redirects_on_exact_match_with_spaces_and_case(self):
         # Query with extra surrounding whitespace and lowercase
-        url = reverse('monitoring:city_search') + '?city=%20%20central%20%20'
+        url = reverse('monitoring:city_search') + '?city=%20%20central%20urban%20core%20%20'
         response = self.client.get(url)
         expected_url = reverse('monitoring:city_dashboard', kwargs={'location_id': self.location.id})
-        self.assertRedirects(response, expected_url)
+        self.assertRedirects(response, expected_url, fetch_redirect_response=False)
 
     @patch('monitoring.services.geocode_city')
     def test_city_search_location_not_found_message(self, mock_geocode):
@@ -98,7 +144,35 @@ class NavigationAndViewsTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "No location matching &#x27;NonexistentCity&#x27; was found by the geocoding provider.")
 
-    def test_city_dashboard_valid_id(self):
+    @patch('monitoring.services.geocode_city')
+    def test_city_search_only_persists_provider_location_after_selection(self, mock_geocode):
+        mock_geocode.return_value = [{
+            'name': 'Jaipur', 'state_or_region': 'Rajasthan', 'country': 'India',
+            'latitude': Decimal('26.91240'), 'longitude': Decimal('75.78730'),
+            'timezone': 'Asia/Kolkata',
+        }]
+        before = Location.objects.count()
+        response = self.client.get(reverse('monitoring:city_search') + '?city=Jaipur')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Jaipur')
+        self.assertEqual(Location.objects.count(), before)
+
+        response = self.client.post(reverse('monitoring:city_search'), {
+            'action': 'select_location', 'candidate_index': '0',
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Location.objects.count(), before + 1)
+        self.assertEqual(Location.objects.get(name='Jaipur').country, 'India')
+
+    @patch('monitoring.services.geocode_city', return_value=None)
+    def test_city_search_does_not_match_unsafe_substrings(self, mock_geocode):
+        response = self.client.get(reverse('monitoring:city_search') + '?city=Core')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'No location matching')
+
+    @patch('monitoring.views.fetch_weather_forecast')
+    def test_city_dashboard_valid_id(self, mock_fetch):
+        mock_fetch.side_effect = RuntimeError('offline test stub')
         url = reverse('monitoring:city_dashboard', kwargs={'location_id': self.location.id})
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
@@ -109,11 +183,15 @@ class NavigationAndViewsTestCase(TestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, 404)
 
-    def test_forecast_view(self):
+    @patch('monitoring.views.fetch_weather_forecast', return_value={
+        'timezone': 'Asia/Kolkata', 'current': {}, 'hourly': [], 'daily': [],
+    })
+    def test_forecast_view(self, mock_fetch):
         url = reverse('monitoring:forecast')
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Regional Heatwave Forecast")
+        mock_fetch.assert_called_once()
 
     def test_city_comparison_view(self):
         url = reverse('monitoring:city_comparison')
@@ -208,6 +286,16 @@ class ModelsTestCase(TestCase):
         )
         with self.assertRaises(ValidationError):
             invalid_loc.full_clean()
+
+    def test_location_case_insensitive_identity_constraint(self):
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                Location.objects.create(
+                    name=self.location.name.upper(),
+                    state_or_region=self.location.state_or_region.lower(),
+                    country=self.location.country.upper(),
+                    latitude=Decimal('40.00000'), longitude=Decimal('40.00000'),
+                )
 
     def test_weather_record_creation_and_relationships(self):
         now = timezone.now()

@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% load utils_tags %}
+
+{% block title %}Weather History - HeatGuard{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <div><h2>Saved Weather History</h2><p>Historical records saved explicitly by users. Page visits are not recorded.</p></div>
+        <a class="btn btn-secondary" href="{% url 'monitoring:weather_history_export' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}">Download CSV</a>
+    </div>
+    <form method="get" class="card" style="margin:1rem 0;">
+        <div class="grid-2">
+            <div class="form-group"><label class="form-label" for="{{ form.location.id_for_label }}">Location</label>{{ form.location }}</div>
+            <div class="form-group"><label class="form-label" for="{{ form.risk_level.id_for_label }}">Risk level</label>{{ form.risk_level }}</div>
+            <div class="form-group"><label class="form-label" for="{{ form.start_date.id_for_label }}">From date (IST)</label>{{ form.start_date }}{{ form.start_date.errors }}</div>
+            <div class="form-group"><label class="form-label" for="{{ form.end_date.id_for_label }}">Through date (IST)</label>{{ form.end_date }}{{ form.end_date.errors }}</div>
+        </div>
+        <button class="btn btn-primary" type="submit">Filter history</button>
+        <a class="btn btn-secondary" href="{% url 'monitoring:weather_history' %}">Clear filters</a>
+    </form>
+    <div class="grid-2" style="margin:1rem 0;">
+        <div class="card"><strong>{{ record_count }}</strong><div>Matching saved records</div></div>
+        <div class="card"><strong>{{ provider_count }} provider / {{ user_entered_count }} user-entered</strong><div>Data provenance</div></div>
+        <div class="card"><strong>{% if average_temperature is not None %}{{ average_temperature|temp_display:temp_unit }}{% else %}Unavailable{% endif %}</strong><div>Average temperature</div></div>
+        <div class="card"><strong>{% if maximum_heat_index is not None %}{{ maximum_heat_index|temp_display:temp_unit }}{% else %}Unavailable{% endif %}</strong><div>Peak recorded Heat Index</div></div>
+    </div>
+    <p>Highest recorded air temperature: {% if maximum_temperature is not None %}{{ maximum_temperature|temp_display:temp_unit }}{% else %}Unavailable{% endif %}</p>
+    <p class="alert alert-info">Provider-supplied readings are labeled separately from unverified user reports. User reports are historical submissions and do not feed live forecasts or official notices.</p>
+    {% if records %}
+    <div class="table-responsive"><table class="data-table">
+        <thead><tr><th>Observed</th><th>Location</th><th>Temperature</th><th>Humidity</th><th>Heat Index</th><th>Risk</th><th>Source</th></tr></thead>
+        <tbody>{% for record in records %}
+            <tr>
+                <td>{{ record.recorded_at|date:"Y-m-d H:i" }} IST</td>
+                <td>{{ record.location.name }}, {{ record.location.country }}</td>
+                <td>{% if record.temperature_c is not None %}{{ record.temperature_c|temp_display:temp_unit }}{% else %}Unavailable{% endif %}</td>
+                <td>{% if record.relative_humidity is not None %}{{ record.relative_humidity }}%{% else %}Unavailable{% endif %}</td>
+                <td>{% if record.heat_index_c is not None %}{{ record.heat_index_c|temp_display:temp_unit }}{% else %}Unavailable{% endif %}</td>
+                <td>{% if record.risk_level %}{{ record.get_risk_level_display }}{% else %}Not assessed{% endif %}</td>
+                <td><span class="tag-provenance">{{ record.get_data_source_display }}</span></td>
+            </tr>
+        {% endfor %}</tbody>
+    </table></div>
+    {% else %}<p>No saved weather records match these filters.</p>{% endif %}
+    {% include 'monitoring/partials/pagination.html' with page_obj=page_obj page_param='page' query=page_query %}
+    <div>{% if user.is_authenticated %}<a class="btn btn-primary" href="{% url 'monitoring:manual_observation' %}">Report an observation</a>{% else %}<a class="btn btn-primary" href="{% url 'monitoring:login' %}?next={% url 'monitoring:manual_observation' %}">Sign in to report an observation</a>{% endif %}</div>
+</div>
+{% endblock %}

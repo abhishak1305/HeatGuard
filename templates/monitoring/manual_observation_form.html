@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block title %}Report an Observation - HeatGuard{% endblock %}
+{% block content %}
+<div class="card" style="max-width:760px;margin:auto;">
+    <h2>Report a Weather Observation</h2>
+    <div class="alert alert-warning"><strong>Unverified user report.</strong> This submission is labeled as user-entered historical data. It is not a provider measurement and does not affect live forecasts or official notices.</div>
+    <p>This report will be visible to anyone in Weather History and its CSV export. The location, readings, and report time are public; your account name is not displayed.</p>
+    <form method="post" novalidate>{% csrf_token %}
+        {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+        {% for field in form %}
+            <div class="form-group"><label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}</div>
+        {% endfor %}
+        <p>Temperature range: −50°C to 65°C. Relative humidity: 0% to 100%. The report time is set when you submit.</p>
+        <button class="btn btn-primary" type="submit">Save user report</button>
+        <a class="btn btn-secondary" href="{% url 'monitoring:weather_history' %}">Cancel</a>
+    </form>
+</div>
+{% endblock %}

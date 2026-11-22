@@ -32,8 +32,8 @@ class HeatIndexCalculationComprehensiveTestCase(TestCase):
 
     def test_typical_lower_heat_conditions(self):
         """
-        Temperatures below 80°F (approx 26.7°C) use the preliminary Steadman formula
-        and should be categorized as NORMAL with no compounding thermal stress.
+        A preliminary average below 80°F uses the Steadman estimate and is categorized
+        as NORMAL with no compounding thermal stress.
         """
         # 20°C (68°F), 50% RH
         result = compute_nws_heat_index(20.0, 50.0)
@@ -41,12 +41,35 @@ class HeatIndexCalculationComprehensiveTestCase(TestCase):
         self.assertEqual(result['adjustment_applied'], 'none')
         self.assertEqual(result['risk']['category'], 'NORMAL')
         self.assertEqual(result['risk']['label'], 'Normal')
-        self.assertAlmostEqual(float(result['heat_index_c']), 20.0, delta=1.5)
+        temp_f = c_to_f(20.0)
+        simple_f = 0.5 * (temp_f + 61.0 + ((temp_f - 68.0) * 1.2) + (50.0 * 0.094))
+        expected_f = 0.5 * (simple_f + temp_f)
+        self.assertAlmostEqual(float(result['heat_index_f']), expected_f, places=2)
 
         # 24°C, 45% RH
         res24 = compute_nws_heat_index(24.0, 45.0)
         self.assertEqual(res24['method_used'], 'simple')
         self.assertEqual(res24['risk']['category'], 'NORMAL')
+
+    def test_regression_threshold_uses_preliminary_average_not_ambient_temperature(self):
+        """Humidity can raise the preliminary average to the regression threshold below 80°F ambient."""
+        result = compute_nws_heat_index(26.2, 100.0)  # 79.16°F ambient; preliminary average > 80°F
+        self.assertEqual(result['method_used'], 'rothfusz_regression')
+
+    def test_simple_method_returns_preliminary_average_below_threshold(self):
+        """Below 80°F average, use the Steadman estimate averaged with ambient temperature."""
+        temperature_c = 25.0
+        humidity = 100.0
+        temperature_f = c_to_f(temperature_c)
+        simple_f = 0.5 * (
+            temperature_f + 61.0 + ((temperature_f - 68.0) * 1.2) + (humidity * 0.094)
+        )
+        expected_f = 0.5 * (simple_f + temperature_f)
+
+        result = compute_nws_heat_index(temperature_c, humidity)
+
+        self.assertEqual(result['method_used'], 'simple')
+        self.assertAlmostEqual(float(result['heat_index_f']), expected_f, places=2)
 
     def test_high_temperature_and_high_humidity(self):
         """

@@ -31,11 +31,7 @@
 
         <div class="form-group">
             <label for="id_username" class="form-label">Username</label>
-            {% if form.username %}
-                {{ form.username }}
-            {% else %}
-                <input type="text" name="username" class="form-input" placeholder="Enter your username" required id="id_username" autofocus>
-            {% endif %}
+            {{ form.username }}
             {% for error in form.username.errors %}
                 <div class="form-error">{{ error }}</div>
             {% endfor %}
@@ -43,11 +39,7 @@
 
         <div class="form-group">
             <label for="id_password" class="form-label">Password</label>
-            {% if form.password %}
-                {{ form.password }}
-            {% else %}
-                <input type="password" name="password" class="form-input" placeholder="Enter your password" required id="id_password">
-            {% endif %}
+            {{ form.password }}
             {% for error in form.password.errors %}
                 <div class="form-error">{{ error }}</div>
             {% endfor %}

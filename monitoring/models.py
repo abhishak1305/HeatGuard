@@ -3,6 +3,8 @@ from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+from django.db.models import Q
+from django.db.models.functions import Lower
 
 
 class Location(models.Model):
@@ -28,6 +30,16 @@ class Location(models.Model):
 
     class Meta:
         ordering = ['name', 'country']
+        indexes = [
+            models.Index(fields=['name', 'country'], name='location_name_country_idx'),
+            models.Index(fields=['latitude', 'longitude'], name='location_coordinates_idx'),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                Lower('name'), Lower('state_or_region'), Lower('country'),
+                name='unique_location_name_region_country_ci',
+            ),
+        ]
         verbose_name = "Location"
         verbose_name_plural = "Locations"
 
@@ -63,7 +75,7 @@ class WeatherRecord(models.Model):
 
     location = models.ForeignKey(
         Location,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name='weather_records',
         help_text="Associated geographical monitoring location."
     )
@@ -127,7 +139,9 @@ class WeatherRecord(models.Model):
     risk_level = models.CharField(
         max_length=20,
         choices=RISK_LEVEL_CHOICES,
-        default='NORMAL'
+        null=True,
+        blank=True,
+        help_text="Heat-risk category, or blank when required assessment inputs are unavailable."
     )
     data_source = models.CharField(
         max_length=30,
@@ -138,6 +152,19 @@ class WeatherRecord(models.Model):
 
     class Meta:
         ordering = ['-recorded_at', '-created_at']
+        indexes = [
+            models.Index(fields=['recorded_at'], name='weather_recorded_at_idx'),
+            models.Index(fields=['location', 'recorded_at'], name='weather_loc_recorded_idx'),
+            models.Index(fields=['requested_by', 'recorded_at'], name='weather_user_recorded_idx'),
+            models.Index(fields=['risk_level', 'recorded_at'], name='weather_risk_recorded_idx'),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['location', 'recorded_at'],
+                condition=Q(record_type='current', data_source='provider-supplied'),
+                name='unique_provider_observation_per_location_time',
+            ),
+        ]
         verbose_name = "Weather Record"
         verbose_name_plural = "Weather Records"
 
@@ -158,7 +185,7 @@ class OfficialNotice(models.Model):
 
     location = models.ForeignKey(
         Location,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name='notices',
         help_text="Target location for this bulletin."
     )
@@ -166,13 +193,15 @@ class OfficialNotice(models.Model):
     message = models.TextField(help_text="Detailed advisory text and safety directives.")
     severity = models.CharField(max_length=20, choices=SEVERITY_CHOICES, default='ADVISORY')
     issuing_organization = models.CharField(max_length=200, help_text="Issuing agency, e.g. National Weather Department.")
-    source_url = models.URLField(help_text="Required link to original verified publication source.")
+    source_url = models.URLField(
+        help_text="Link to the original official publication; authorized staff must verify its authenticity."
+    )
     issued_at = models.DateTimeField(default=timezone.now, help_text="Date and time when bulletin was issued.")
     valid_from = models.DateTimeField(help_text="Effective start time for this notice.")
     valid_until = models.DateTimeField(help_text="Effective expiration time for this notice.")
     created_by = models.ForeignKey(
         User,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name='published_notices',
         help_text="Staff or admin user who published this record in HeatGuard."
     )
@@ -181,6 +210,9 @@ class OfficialNotice(models.Model):
 
     class Meta:
         ordering = ['-valid_from', '-created_at']
+        indexes = [
+            models.Index(fields=['is_published', 'valid_from', 'valid_until'], name='notice_published_window_idx'),
+        ]
         verbose_name = "Official Notice"
         verbose_name_plural = "Official Notices"
 
@@ -192,7 +224,7 @@ class OfficialNotice(models.Model):
             })
         if not self.source_url or not self.source_url.strip():
             raise ValidationError({
-                'source_url': "An official notice requires a verified official source URL."
+                'source_url': "An official notice requires a source URL. Authorized staff must verify its authenticity."
             })
         if not self.issuing_organization or not self.issuing_organization.strip():
             raise ValidationError({

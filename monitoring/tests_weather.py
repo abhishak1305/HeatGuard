@@ -1,9 +1,11 @@
 import io
 import json
 import urllib.error
+import ssl
 from decimal import Decimal
 from unittest.mock import patch, MagicMock
 from django.test import TestCase, Client
+from django.core.cache import cache
 from django.urls import reverse
 from django.contrib.auth.models import User
 from django.utils import timezone
@@ -16,6 +18,7 @@ from .weather_service import (
     WeatherNetworkError,
     WeatherAPIError,
     WeatherDataFormatError,
+    WeatherTLSVerificationError,
 )
 from .utils import calculate_heat_index
 
@@ -69,6 +72,20 @@ class WeatherServiceMockedTestCase(TestCase):
 
         with self.assertRaises(WeatherNetworkError):
             geocode_city("London")
+
+    @patch('urllib.request.urlopen')
+    def test_geocode_tls_failure_is_not_retried_insecurely(self, mock_urlopen):
+        mock_urlopen.side_effect = urllib.error.URLError(ssl.SSLCertVerificationError("bad certificate"))
+        with self.assertRaises(WeatherTLSVerificationError):
+            geocode_city("London")
+        mock_urlopen.assert_called_once()
+
+    @patch('urllib.request.urlopen')
+    def test_forecast_tls_failure_is_not_retried_insecurely(self, mock_urlopen):
+        mock_urlopen.side_effect = urllib.error.URLError(ssl.SSLCertVerificationError("bad certificate"))
+        with self.assertRaises(WeatherTLSVerificationError):
+            fetch_weather_forecast(Decimal('28.61390'), Decimal('77.20900'))
+        mock_urlopen.assert_called_once()
 
     @patch('urllib.request.urlopen')
     def test_geocode_city_http_error(self, mock_urlopen):
@@ -133,6 +150,29 @@ class WeatherServiceMockedTestCase(TestCase):
         with self.assertRaises(WeatherDataFormatError):
             fetch_weather_forecast(Decimal("10.0"), Decimal("20.0"))
 
+    @patch('urllib.request.urlopen')
+    def test_fetch_weather_forecast_keeps_temperature_when_humidity_is_missing(self, mock_urlopen):
+        for humidity_field in ('missing', None):
+            with self.subTest(humidity_field=humidity_field):
+                current = {
+                    'time': '2026-11-20T12:00',
+                    'temperature_2m': 31.5,
+                }
+                if humidity_field is None:
+                    current['relative_humidity_2m'] = None
+                mock_response = MagicMock()
+                mock_response.getcode.return_value = 200
+                mock_response.read.return_value = json.dumps({
+                    'timezone': 'Asia/Kolkata',
+                    'current': current,
+                }).encode('utf-8')
+                mock_urlopen.return_value.__enter__.return_value = mock_response
+
+                result = fetch_weather_forecast(Decimal('28.6'), Decimal('77.2'))
+
+                self.assertEqual(result['current']['temperature_c'], Decimal('31.5'))
+                self.assertIsNone(result['current']['relative_humidity'])
+
 
 class HeatIndexCalculationTestCase(TestCase):
     def test_heat_index_high_stress(self):
@@ -150,6 +190,7 @@ class HeatIndexCalculationTestCase(TestCase):
 
 class CityDashboardWorkflowTestCase(TestCase):
     def setUp(self):
+        cache.clear()
         self.client = Client()
         self.location = Location.objects.create(
             name="Test City",
@@ -186,8 +227,8 @@ class CityDashboardWorkflowTestCase(TestCase):
         self.assertContains(response, "Weather data by Open-Meteo.com")
         self.assertContains(response, "Numerical weather prediction model output")
 
-        # Verify that record was saved into database with data_source = provider-supplied
-        self.assertTrue(WeatherRecord.objects.filter(location=self.location, data_source='provider-supplied').exists())
+        # A dashboard GET displays data but never writes a history record.
+        self.assertFalse(WeatherRecord.objects.filter(location=self.location, data_source='provider-supplied').exists())
 
     @patch('monitoring.views.fetch_weather_forecast')
     def test_city_dashboard_weather_provider_failure_honest_error(self, mock_fetch):
@@ -198,4 +239,27 @@ class CityDashboardWorkflowTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Live Telemetry Unavailable")
         self.assertContains(response, "HeatGuard does not synthesize fallback values")
-        self.assertContains(response, "Gateway Timeout")
+        self.assertNotContains(response, "Gateway Timeout")
+        self.assertContains(response, "Please try again later")
+
+    @patch('monitoring.views.fetch_weather_forecast')
+    def test_city_dashboard_unexpected_error_does_not_expose_exception(self, mock_fetch):
+        mock_fetch.side_effect = RuntimeError("private upstream traceback detail")
+        url = reverse('monitoring:city_dashboard', kwargs={'location_id': self.location.id})
+
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Unexpected error while processing live weather data")
+        self.assertNotContains(response, "private upstream traceback detail")
+
+    @patch('monitoring.services.geocode_city')
+    def test_city_search_does_not_show_raw_provider_exception(self, mock_geocode):
+        mock_geocode.side_effect = WeatherNetworkError("internal proxy token")
+        url = reverse('monitoring:city_search') + '?city=Unlisted+Town'
+
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "City lookup is currently unavailable")
+        self.assertNotContains(response, "internal proxy token")

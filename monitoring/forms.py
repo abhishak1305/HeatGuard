@@ -2,13 +2,15 @@ from django import forms
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.core.exceptions import ValidationError
-from .models import OfficialNotice, Location
+from django.core.validators import MinValueValidator, MaxValueValidator
+from django.utils import timezone
+from .models import OfficialNotice, Location, WeatherRecord
 
 
 class HeatGuardRegistrationForm(UserCreationForm):
     """
     Standard user registration form subclassing Django's UserCreationForm.
-    Collects username, optional email, and secure hashed password via PBKDF2/Argon2.
+    Collects username, optional email, and passwords handled by Django's configured hasher (PBKDF2 by default).
     """
     email = forms.EmailField(
         required=False,
@@ -147,6 +149,36 @@ class OfficialNoticeForm(forms.ModelForm):
     """
     ModelForm for authorized staff to create or edit Official Notices.
     """
+    issued_at = forms.DateTimeField(
+        input_formats=['%Y-%m-%dT%H:%M'], initial=timezone.localtime,
+        widget=forms.DateTimeInput(
+            format='%Y-%m-%dT%H:%M',
+            attrs={'class': 'form-input', 'type': 'datetime-local'},
+        ),
+    )
+
+    valid_from = forms.DateTimeField(
+        input_formats=['%Y-%m-%dT%H:%M'],
+        widget=forms.DateTimeInput(
+            format='%Y-%m-%dT%H:%M',
+            attrs={'class': 'form-input', 'type': 'datetime-local'},
+        ),
+    )
+    valid_until = forms.DateTimeField(
+        input_formats=['%Y-%m-%dT%H:%M'],
+        widget=forms.DateTimeInput(
+            format='%Y-%m-%dT%H:%M',
+            attrs={'class': 'form-input', 'type': 'datetime-local'},
+        ),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['source_url'].help_text = (
+            "HeatGuard validates URL format only. Confirm that this is the issuing authority's "
+            "authentic publication page before publishing."
+        )
+
     class Meta:
         model = OfficialNotice
         fields = [
@@ -155,6 +187,7 @@ class OfficialNoticeForm(forms.ModelForm):
             'severity',
             'issuing_organization',
             'source_url',
+            'issued_at',
             'valid_from',
             'valid_until',
             'message',
@@ -166,8 +199,6 @@ class OfficialNoticeForm(forms.ModelForm):
             'severity': forms.Select(attrs={'class': 'form-select'}),
             'issuing_organization': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'e.g. India Meteorological Department (IMD)'}),
             'source_url': forms.URLInput(attrs={'class': 'form-input', 'placeholder': 'https://mausam.imd.gov.in/...'}),
-            'valid_from': forms.DateTimeInput(attrs={'class': 'form-input', 'type': 'datetime-local'}),
-            'valid_until': forms.DateTimeInput(attrs={'class': 'form-input', 'type': 'datetime-local'}),
             'message': forms.Textarea(attrs={'class': 'form-textarea', 'rows': 4, 'placeholder': 'Official advisory directives, affected population, precautions...'}),
             'is_published': forms.CheckboxInput(attrs={'style': 'margin-right: 0.5rem;'}),
         }
@@ -176,16 +207,64 @@ class OfficialNoticeForm(forms.ModelForm):
         cleaned_data = super().clean()
         valid_from = cleaned_data.get('valid_from')
         valid_until = cleaned_data.get('valid_until')
+        issued_at = cleaned_data.get('issued_at')
         source_url = cleaned_data.get('source_url')
         issuing_org = cleaned_data.get('issuing_organization')
 
         if valid_from and valid_until and valid_until <= valid_from:
             self.add_error('valid_until', "The expiration date/time ('valid_until') must be strictly later than 'valid_from'.")
 
+        if issued_at and valid_until and issued_at > valid_until:
+            self.add_error('issued_at', "The issue time cannot be later than the notice expiration time.")
+
         if not source_url:
-            self.add_error('source_url', "An official notice requires a verified official source URL.")
+            self.add_error('source_url', "An official notice requires a source URL. Staff must verify its authenticity.")
 
         if not issuing_org or not issuing_org.strip():
             self.add_error('issuing_organization', "An official notice requires an identified issuing organization.")
 
         return cleaned_data
+class WeatherHistoryFilterForm(forms.Form):
+    location = forms.ModelChoiceField(
+        queryset=Location.objects.order_by('name', 'country'), required=False,
+        empty_label='All locations', widget=forms.Select(attrs={'class': 'form-select'}),
+    )
+    start_date = forms.DateField(required=False, widget=forms.DateInput(attrs={'class': 'form-input', 'type': 'date'}))
+    end_date = forms.DateField(required=False, widget=forms.DateInput(attrs={'class': 'form-input', 'type': 'date'}))
+    risk_level = forms.ChoiceField(
+        required=False,
+        choices=[('', 'All risk levels'), *WeatherRecord.RISK_LEVEL_CHOICES],
+        widget=forms.Select(attrs={'class': 'form-select'}),
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        start_date = cleaned_data.get('start_date')
+        end_date = cleaned_data.get('end_date')
+        if start_date and end_date and start_date > end_date:
+            self.add_error('end_date', 'The end date must be on or after the start date.')
+        return cleaned_data
+
+
+class ManualObservationForm(forms.ModelForm):
+    temperature_c = forms.DecimalField(
+        min_value=-50, max_value=65, max_digits=5, decimal_places=2,
+        label='Temperature (°C)',
+        validators=[MinValueValidator(-50), MaxValueValidator(65)],
+        widget=forms.NumberInput(attrs={'class': 'form-input', 'step': '0.1'}),
+    )
+    relative_humidity = forms.DecimalField(
+        min_value=0, max_value=100, max_digits=5, decimal_places=2,
+        label='Relative humidity (%)',
+        widget=forms.NumberInput(attrs={'class': 'form-input', 'step': '0.1'}),
+    )
+
+    class Meta:
+        model = WeatherRecord
+        fields = ('location', 'temperature_c', 'relative_humidity')
+        labels = {'location': 'Monitoring location'}
+        widgets = {'location': forms.Select(attrs={'class': 'form-select'})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['location'].queryset = Location.objects.order_by('name', 'country')

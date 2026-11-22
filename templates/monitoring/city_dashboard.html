@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load utils_tags %}
 
 {% block title %}City Monitoring Dashboard - {{ location.name }} - HeatGuard{% endblock %}
 
@@ -7,14 +8,14 @@
     <!-- Header with Geographic Details & Provenance -->
     <div class="card-header">
         <div>
-            <h2 style="margin: 0; font-size: 1.5rem; color: var(--color-navy-dark);">
+            <h2 class="dashboard-location-title">
                 {{ location.name }}
             </h2>
-            <div style="font-size: 0.9rem; color: var(--color-text-muted); margin-top: 0.2rem;">
+            <div class="dashboard-location-meta">
                 {{ location.state_or_region|default:"Region not specified" }}, {{ location.country }}
                 &bull; Coordinates: {{ location.latitude }}°, {{ location.longitude }}°
                 {% if live_weather %}
-                    &bull; Last Retrieved: {{ live_weather.retrieved_at|date:"Y-m-d H:i:s" }} UTC
+                    &bull; Last Retrieved: {{ live_weather.retrieved_at|date:"Y-m-d H:i:s T" }}
                 {% endif %}
             </div>
         </div>
@@ -61,67 +62,67 @@
         <!-- Responsive Telemetry Metrics Grid -->
         <div class="grid-4" style="margin-bottom: 1.25rem;">
             <!-- 1. Ambient Temperature -->
-            <div class="card" style="margin-bottom: 0; background: #f8fafc;">
+            <div class="card dashboard-telemetry-card">
                 <div class="form-label" style="display: flex; justify-content: space-between;">
                     <span>Ambient Temp</span>
                     <span class="tag-provenance">provider-supplied</span>
                 </div>
-                <div style="font-size: 1.8rem; font-weight: 700; color: var(--color-navy-dark);">
+                <div class="dashboard-telemetry-value">
                     {% if live_weather.current.temperature_c is not None %}
-                        {{ live_weather.current.temperature_c }} °C
+                        {{ live_weather.current.temperature_c|temp_display:temp_unit }}
                     {% else %}
                         <span style="font-size: 1rem; color: var(--color-text-muted);">Not available</span>
                     {% endif %}
                 </div>
-                <div style="font-size: 0.775rem; color: var(--color-text-muted);">Dry-bulb air temperature</div>
+                <div class="dashboard-telemetry-meta">Dry-bulb air temperature</div>
             </div>
 
             <!-- 2. Relative Humidity -->
-            <div class="card" style="margin-bottom: 0; background: #f8fafc;">
+            <div class="card dashboard-telemetry-card">
                 <div class="form-label" style="display: flex; justify-content: space-between;">
                     <span>Relative Humidity</span>
                     <span class="tag-provenance">provider-supplied</span>
                 </div>
-                <div style="font-size: 1.8rem; font-weight: 700; color: var(--color-navy-dark);">
+                <div class="dashboard-telemetry-value">
                     {% if live_weather.current.relative_humidity is not None %}
                         {{ live_weather.current.relative_humidity }}%
                     {% else %}
                         <span style="font-size: 1rem; color: var(--color-text-muted);">Not available</span>
                     {% endif %}
                 </div>
-                <div style="font-size: 0.775rem; color: var(--color-text-muted);">Surface moisture (2m)</div>
+                <div class="dashboard-telemetry-meta">Surface moisture (2m)</div>
             </div>
 
             <!-- 3. Provider Apparent Temp -->
-            <div class="card" style="margin-bottom: 0; background: #f8fafc;">
+            <div class="card dashboard-telemetry-card">
                 <div class="form-label" style="display: flex; justify-content: space-between;">
                     <span>Provider Apparent</span>
                     <span class="tag-provenance">provider-supplied</span>
                 </div>
-                <div style="font-size: 1.8rem; font-weight: 700; color: var(--color-navy-dark);">
+                <div class="dashboard-telemetry-value">
                     {% if live_weather.current.apparent_temperature_c is not None %}
-                        {{ live_weather.current.apparent_temperature_c }} °C
+                        {{ live_weather.current.apparent_temperature_c|temp_display:temp_unit }}
                     {% else %}
                         <span style="font-size: 1rem; color: var(--color-text-muted);">Not available</span>
                     {% endif %}
                 </div>
-                <div style="font-size: 0.775rem; color: var(--color-text-muted);">Open-Meteo model index</div>
+                <div class="dashboard-telemetry-meta">Open-Meteo model index</div>
             </div>
 
             <!-- 4. Wind Speed -->
-            <div class="card" style="margin-bottom: 0; background: #f8fafc;">
+            <div class="card dashboard-telemetry-card">
                 <div class="form-label" style="display: flex; justify-content: space-between;">
                     <span>Wind Speed</span>
                     <span class="tag-provenance">provider-supplied</span>
                 </div>
-                <div style="font-size: 1.8rem; font-weight: 700; color: var(--color-navy-dark);">
+                <div class="dashboard-telemetry-value">
                     {% if live_weather.current.wind_speed_kmh is not None %}
                         {{ live_weather.current.wind_speed_kmh }} km/h
                     {% else %}
                         <span style="font-size: 1rem; color: var(--color-text-muted);">Not available</span>
                     {% endif %}
                 </div>
-                <div style="font-size: 0.775rem; color: var(--color-text-muted);">Standard 10m height</div>
+                <div class="dashboard-telemetry-meta">Standard 10m height</div>
             </div>
         </div>
 
@@ -135,14 +136,16 @@
                     </div>
                     <div style="font-size: 2.2rem; font-weight: 800; color: #9a3412;">
                         {% if hi_result.heat_index_c is not None %}
-                            {{ hi_result.heat_index_c }} °C
+                            {{ hi_result.heat_index_c|temp_display:temp_unit }}
                         {% else %}
                             <span style="font-size: 1.2rem; color: var(--color-text-muted);">Not available</span>
                         {% endif %}
                     </div>
-                    <div style="font-size: 0.8rem; color: var(--color-text-muted);">
-                        Method: {{ hi_result.method_used|default:"NWS equation" }} &bull; Adjustment: {{ hi_result.adjustment_applied|default:"none" }}
-                    </div>
+                    {% if hi_result %}
+                        <div style="font-size: 0.8rem; color: var(--color-text-muted);">
+                            Method: {{ hi_result.method_used }} &bull; Adjustment: {{ hi_result.adjustment_applied }}
+                        </div>
+                    {% endif %}
                 </div>
 
                 <div>
@@ -156,17 +159,25 @@
                             <span style="color: var(--color-text-muted);">Not available</span>
                         {% endif %}
                     </div>
-                    <div style="font-size: 0.85rem; color: var(--color-text-main); margin-top: 0.35rem;">
-                        <strong>Assessment:</strong> {{ hi_result.risk.description }}
-                    </div>
+                    {% if hi_result %}
+                        <div style="font-size: 0.85rem; color: var(--color-text-main); margin-top: 0.35rem;">
+                            <strong>Assessment:</strong> {{ hi_result.risk.description }}
+                        </div>
+                    {% endif %}
                 </div>
             </div>
 
             <!-- Short Explanation & Comprehensive Practical Safety Guidance -->
             <div style="margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--color-border);">
-                <div style="font-size: 0.85rem; color: var(--color-text-main); margin-bottom: 0.5rem;">
-                    <strong>Why this category was assigned:</strong> {{ hi_result.explanation }}
-                </div>
+                {% if hi_result %}
+                    <div style="font-size: 0.85rem; color: var(--color-text-main); margin-bottom: 0.5rem;">
+                        <strong>Why this category was assigned:</strong> {{ hi_result.explanation }}
+                    </div>
+                {% else %}
+                    <div style="font-size: 0.85rem; color: var(--color-text-muted); margin-bottom: 0.5rem;">
+                        Heat Index assessment is unavailable because temperature or relative humidity was not provided.
+                    </div>
+                {% endif %}
 
                 {% if safety_guidance %}
                     <div class="alert alert-info" style="margin-bottom: 0; font-size: 0.85rem;">
@@ -182,7 +193,7 @@
                             <li><strong>Heat-Illness Warning Signs:</strong> {{ safety_guidance.warning_signs }}</li>
                         </ul>
                         <div style="margin-top: 0.5rem; font-size: 0.775rem; color: #1e3a8a; border-top: 1px dashed #bfdbfe; padding-top: 0.35rem;">
-                            <strong>Emergency Notice:</strong> If anyone exhibits confusion, fainting, vomiting, or skin above 39.5°C, seek urgent local medical assistance (108/112/911) immediately.
+                            <strong>Emergency Notice:</strong> If anyone exhibits confusion, fainting, vomiting, or body temperature above 39.5°C (103°F), seek urgent local medical assistance (108/112/911) immediately.
                         </div>
                     </div>
                 {% endif %}
@@ -190,11 +201,20 @@
         </div>
 
         <!-- Data Source Attribution & Model Context Area -->
-        <div style="background: #f1f5f9; border: 1px solid var(--color-border); border-radius: 4px; padding: 0.75rem 1rem; font-size: 0.8rem; color: var(--color-text-muted); margin-bottom: 1.5rem;">
+        <div class="dashboard-attribution">
             <div><strong>Source Attribution:</strong> {{ live_weather.attribution }}</div>
             <div><strong>Model Context:</strong> {{ live_weather.model_context }}</div>
-            <div><strong>Provider Retrieval Timestamp:</strong> {{ live_weather.retrieved_at|date:"Y-m-d H:i:s" }} UTC</div>
+            <div><strong>Provider Observation Time:</strong> {{ live_weather.current.time|default:"Not available" }} {{ live_weather.timezone|default:"provider local time" }}</div>
+            <div><strong>Application Retrieval Time:</strong> {{ live_weather.retrieved_at|date:"Y-m-d H:i:s T" }} (Asia/Kolkata)</div>
         </div>
+
+        {% if live_weather.current.time %}
+            <form method="post" style="margin: 0 0 1.5rem;">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="save_reading">
+                <button type="submit" class="btn btn-secondary">Save this provider reading to history</button>
+            </form>
+        {% endif %}
     {% endif %}
 
     <!-- Relevant Published Official Notices Section -->
@@ -272,14 +292,18 @@
                     <tbody>
                         {% for rec in recent_records %}
                             <tr>
-                                <td>{{ rec.recorded_at|date:"Y-m-d H:i" }} UTC</td>
-                                <td>{{ rec.temperature_c }} °C</td>
+                                <td>{{ rec.recorded_at|date:"Y-m-d H:i T" }} (Asia/Kolkata)</td>
+                                <td>{{ rec.temperature_c|temp_display:temp_unit }}</td>
                                 <td>{{ rec.relative_humidity }}%</td>
-                                <td>{% if rec.heat_index_c is not None %}{{ rec.heat_index_c }} °C{% else %}Not available{% endif %}</td>
+                                <td>{% if rec.heat_index_c is not None %}{{ rec.heat_index_c|temp_display:temp_unit }}{% else %}Not available{% endif %}</td>
                                 <td>
-                                    <span class="badge {% if rec.risk_level == 'NORMAL' %}risk-low{% elif rec.risk_level == 'CAUTION' %}risk-moderate{% elif rec.risk_level == 'EXTREME_CAUTION' %}risk-high{% elif rec.risk_level == 'DANGER' %}risk-very-high{% else %}risk-extreme{% endif %}">
-                                        {{ rec.risk_level }}
-                                    </span>
+                                    {% if rec.risk_level %}
+                                        <span class="badge {% if rec.risk_level == 'NORMAL' %}risk-low{% elif rec.risk_level == 'CAUTION' %}risk-moderate{% elif rec.risk_level == 'EXTREME_CAUTION' %}risk-high{% elif rec.risk_level == 'DANGER' %}risk-very-high{% else %}risk-extreme{% endif %}">
+                                            {{ rec.get_risk_level_display }}
+                                        </span>
+                                    {% else %}
+                                        Not assessed
+                                    {% endif %}
                                 </td>
                                 <td><span class="tag-provenance">{{ rec.data_source }}</span></td>
                             </tr>

@@ -1,8 +1,10 @@
 from decimal import Decimal
-from datetime import timedelta
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from django.test import TestCase, Client
 from django.urls import reverse
 from django.contrib.auth.models import User
+from django.db.models.deletion import ProtectedError
 from django.utils import timezone
 
 from monitoring.models import Location, OfficialNotice
@@ -63,18 +65,21 @@ class OfficialNoticeStaffWorkflowTestCase(TestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Publish New Official Notice")
+        self.assertContains(response, 'Issued At (IST, Asia/Kolkata)')
+        self.assertContains(response, 'HeatGuard validates URL format only')
 
     def test_staff_user_can_create_notice_post_redirect_get(self):
         """Staff user can create notice via POST and is redirected via PRG pattern."""
         self.client.force_login(self.staff_user)
         url = reverse('monitoring:notice_create')
-        now = timezone.now()
+        now = timezone.localtime(timezone.now())
         post_data = {
             'location': self.location.id,
             'title': 'Red Level Heatwave Emergency Directive',
             'severity': 'EMERGENCY',
             'issuing_organization': 'India Meteorological Department (IMD)',
             'source_url': 'https://mausam.imd.gov.in/heatwave-alert-101',
+            'issued_at': now.strftime('%Y-%m-%dT%H:%M'),
             'valid_from': (now - timedelta(hours=1)).strftime('%Y-%m-%dT%H:%M'),
             'valid_until': (now + timedelta(days=2)).strftime('%Y-%m-%dT%H:%M'),
             'message': 'Severe heatwave conditions over Delhi NCR. Avoid outdoor activity from 11:00 to 16:00.',
@@ -88,6 +93,37 @@ class OfficialNoticeStaffWorkflowTestCase(TestCase):
         self.assertEqual(notice.created_by, self.staff_user)
         self.assertEqual(notice.severity, 'EMERGENCY')
         self.assertEqual(notice.status, 'active')
+        self.assertLessEqual(notice.issued_at, notice.valid_until)
+        expected_valid_from = datetime.strptime(
+            post_data['valid_from'], '%Y-%m-%dT%H:%M'
+        ).replace(tzinfo=ZoneInfo('Asia/Kolkata'))
+        self.assertEqual(notice.valid_from, expected_valid_from)
+
+    def test_notice_datetime_local_values_expire_in_ist(self):
+        """A datetime-local expiry is interpreted as Asia/Kolkata wall time."""
+        self.client.force_login(self.staff_user)
+        post_data = {
+            'location': self.location.pk,
+            'title': 'IST Expiry Test',
+            'severity': 'WARNING',
+            'issuing_organization': 'IMD',
+            'source_url': 'https://mausam.imd.gov.in/ist-expiry',
+            'issued_at': '2026-11-20T09:00',
+            'valid_from': '2026-11-20T10:00',
+            'valid_until': '2026-11-20T11:00',
+            'message': 'Test expiry time interpretation.',
+            'is_published': 'on',
+        }
+
+        response = self.client.post(reverse('monitoring:notice_create'), data=post_data)
+
+        self.assertRedirects(response, reverse('monitoring:notice_list'))
+        notice = OfficialNotice.objects.get(title='IST Expiry Test')
+        self.assertEqual(
+            notice.valid_until,
+            datetime(2026, 11, 20, 11, 0, tzinfo=ZoneInfo('Asia/Kolkata')),
+        )
+        self.assertEqual(notice.status, 'expired')
 
     def test_staff_user_can_edit_notice(self):
         """Staff user can edit an existing official notice."""
@@ -113,6 +149,7 @@ class OfficialNoticeStaffWorkflowTestCase(TestCase):
             'severity': 'WARNING',
             'issuing_organization': 'IMD',
             'source_url': 'https://mausam.imd.gov.in/bulletin-updated',
+            'issued_at': now.strftime('%Y-%m-%dT%H:%M'),
             'valid_from': now.strftime('%Y-%m-%dT%H:%M'),
             'valid_until': (now + timedelta(days=1)).strftime('%Y-%m-%dT%H:%M'),
             'message': 'Updated advisory directives.',
@@ -136,6 +173,7 @@ class OfficialNoticeStaffWorkflowTestCase(TestCase):
             'severity': 'WARNING',
             'issuing_organization': 'IMD',
             'source_url': 'https://mausam.imd.gov.in/test',
+            'issued_at': now.strftime('%Y-%m-%dT%H:%M'),
             'valid_from': now.strftime('%Y-%m-%dT%H:%M'),
             'valid_until': (now - timedelta(hours=2)).strftime('%Y-%m-%dT%H:%M'),  # INVALID
             'message': 'Test message.',
@@ -187,3 +225,20 @@ class OfficialNoticeStaffWorkflowTestCase(TestCase):
         self.assertContains(response, "Expired Notices Archive")
         self.assertContains(response, "Expired Heat Watch from Last Week")
         self.assertEqual(expired_notice.status, 'expired')
+
+    def test_notice_creator_cannot_be_deleted_while_notice_exists(self):
+        now = timezone.now()
+        notice = OfficialNotice.objects.create(
+            location=self.location,
+            title='Protected record',
+            message='Published notice retained for audit.',
+            severity='WARNING',
+            issuing_organization='IMD',
+            source_url='https://mausam.imd.gov.in/protected',
+            valid_from=now,
+            valid_until=now + timedelta(hours=2),
+            created_by=self.staff_user,
+        )
+        with self.assertRaises(ProtectedError):
+            self.staff_user.delete()
+        self.assertTrue(OfficialNotice.objects.filter(pk=notice.pk).exists())

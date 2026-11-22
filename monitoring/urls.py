@@ -8,6 +8,11 @@ urlpatterns = [
     path('search/', views.city_search_view, name='city_search'),
     path('city/<int:location_id>/', views.city_dashboard_view, name='city_dashboard'),
     path('forecast/', views.forecast_view, name='forecast'),
+    path('india-heatmap/', views.india_heatmap_view, name='india_heatmap'),
+    path('india-heatmap/data/', views.india_heatmap_data_view, name='india_heatmap_data'),
+    path('history/', views.weather_history_view, name='weather_history'),
+    path('history/export.csv', views.weather_history_export_view, name='weather_history_export'),
+    path('observations/report/', views.manual_observation_view, name='manual_observation'),
     path('comparison/', views.city_comparison_view, name='city_comparison'),
     path('safety-guidance/', views.safety_guidance_view, name='safety_guidance'),
     

@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Live India Heat Index Map - HeatGuard{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<link rel="stylesheet" href="{% static 'monitoring/css/india_heatmap.css' %}">
+{% endblock %}
+{% block content %}
+<section class="heatmap-page">
+  <div class="heatmap-heading">
+    <div>
+      <h1>Live India Heat Index Map</h1>
+      <p>Explore estimated temperature and heat stress across India using the latest available Open-Meteo weather-model data.</p>
+    </div>
+    <div class="heatmap-controls-row">
+      <div class="mode-toggle" role="group" aria-label="Map Display Layer">
+        <button type="button" id="toggle-temp" class="active" aria-pressed="true">Live Temperature (°C)</button>
+        <button type="button" id="toggle-hi" aria-pressed="false">Heat Index (Feels Like)</button>
+      </div>
+      <button id="heatmap-refresh" class="btn btn-primary" type="button" aria-label="Refresh heatmap data">Refresh Live Data</button>
+    </div>
+  </div>
+
+  <div class="heatmap-status" aria-live="polite">
+    <span id="heatmap-status">Fetching live weather telemetry across India…</span>
+    <span id="heatmap-timestamp"></span>
+  </div>
+
+  <div id="heatmap-error" class="alert alert-danger" role="alert" hidden></div>
+
+  <div class="map-shell">
+    <div id="india-heatmap" role="region" aria-label="India Heat Map"></div>
+
+    <aside class="heatmap-legend" aria-label="Heat Map Scale Legend">
+      <strong id="legend-title">Live Temperature Scale (°C)</strong>
+      <div id="legend-gradient" class="legend-bar" style="background: linear-gradient(to right, #38bdf8, #22c55e, #eab308, #f97316, #ef4444, #7f1d1d);"></div>
+      <div id="legend-labels" class="legend-labels">
+        <span>&le; 0°C</span>
+        <span>15°C</span>
+        <span>25°C</span>
+        <span>32°C</span>
+        <span>38°C</span>
+        <span>&ge; 45°C</span>
+      </div>
+      <small id="legend-description">Continuous thermal gradient interpolated between model-based weather sample locations.</small>
+    </aside>
+
+    <div class="map-controls">
+      <button id="heatmap-reset" type="button" aria-label="Reset map to India">Reset India View</button>
+    </div>
+  </div>
+
+  <p class="heatmap-disclaimer">
+    <strong>Data provenance:</strong> Open-Meteo model-based estimates, not ground-station observations. Heat Index is calculated from estimated air temperature and humidity using the NOAA/NWS Rothfusz method. Colors are interpolated between sample points and may not represent local conditions.
+  </p>
+</section>
+{% endblock %}
+{% block extra_scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<script>
+  window.HEATGUARD_MAP_CONFIG = {
+    dataUrl: "{% url 'monitoring:india_heatmap_data' %}",
+    boundaryUrl: "{% static 'monitoring/geo/india_boundary.geojson' %}"
+  };
+</script>
+<script src="{% static 'monitoring/js/india_heatmap.js' %}?v=2" defer></script>
+{% endblock %}

@@ -16,7 +16,7 @@
 
     <div class="alert alert-warning" style="font-size: 0.85rem; margin-bottom: 1.5rem;">
         <strong>Staff Verification Requirement:</strong>
-        To prevent misinformation, an Official Notice can only be published if you supply a verified issuing authority, valid dates, and an authentic official source URL.
+        To prevent misinformation, staff must independently verify the issuing authority, validity dates, and source page. HeatGuard checks required fields and URL format but cannot confirm that a website is an official issuer.
     </div>
 
     <form method="post" action="" novalidate>
@@ -48,6 +48,12 @@
                     {{ form.title.errors.0 }}
                 </div>
             {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label for="{{ form.issued_at.id_for_label }}" class="form-label">Issued At (IST, Asia/Kolkata) *</label>
+            {{ form.issued_at }}
+            {% if form.issued_at.errors %}<div class="alert alert-danger">{{ form.issued_at.errors.0 }}</div>{% endif %}
         </div>
 
         <div class="grid-2">
@@ -87,7 +93,7 @@
 
         <div class="grid-2">
             <div class="form-group">
-                <label for="{{ form.valid_from.id_for_label }}" class="form-label">Valid From (Start Time) *</label>
+            <label for="{{ form.valid_from.id_for_label }}" class="form-label">Valid From (IST, Asia/Kolkata) *</label>
                 {{ form.valid_from }}
                 {% if form.valid_from.errors %}
                     <div style="color: #dc2626; font-size: 0.825rem; margin-top: 0.25rem;">
@@ -97,7 +103,7 @@
             </div>
 
             <div class="form-group">
-                <label for="{{ form.valid_until.id_for_label }}" class="form-label">Valid Until (Expiration Time) *</label>
+            <label for="{{ form.valid_until.id_for_label }}" class="form-label">Valid Until (IST, Asia/Kolkata) *</label>
                 {{ form.valid_until }}
                 {% if form.valid_until.errors %}
                     <div style="color: #dc2626; font-size: 0.825rem; margin-top: 0.25rem;">

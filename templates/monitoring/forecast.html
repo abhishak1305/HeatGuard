@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load utils_tags %}
 
 {% block title %}Regional Heatwave Forecast & Outlook - HeatGuard{% endblock %}
 
@@ -64,11 +65,11 @@
                 <div>
                     <div><strong>Station:</strong> {{ location.name }} ({{ location.latitude }}°, {{ location.longitude }}°)</div>
                     <div><strong>Local Timezone:</strong> {{ forecast_data.timezone }} ({{ forecast_data.timezone_abbreviation }})</div>
-                    <div><strong>Units:</strong> Temperature in °C, Relative Humidity in %, Wind in km/h</div>
+                    <div><strong>Units:</strong> Temperature in {% if temp_unit == 'F' %}°F{% else %}°C{% endif %}, Relative Humidity in %, Wind in km/h</div>
                 </div>
                 <div>
                     <div><strong>Provider:</strong> {{ forecast_data.provider }} (CC BY 4.0 license)</div>
-                    <div><strong>Retrieval Timestamp:</strong> {{ forecast_data.retrieved_at|date:"Y-m-d H:i:s" }} UTC</div>
+                    <div><strong>Application Retrieval Time:</strong> {{ forecast_data.retrieved_at|date:"Y-m-d H:i:s" }} IST (Asia/Kolkata)</div>
                     <div><strong>Model Context:</strong> {{ forecast_data.model_context }}</div>
                 </div>
             </div>
@@ -80,14 +81,17 @@
                 <div class="form-label" style="color: #9a3412;">Peak Hottest Forecast Hour (Next 24h)</div>
                 {% if hottest_hour %}
                     <div style="font-size: 1.8rem; font-weight: 800; color: #9a3412;">
-                        {{ hottest_hour.temperature_c }} °C
+                        {{ hottest_hour.temperature_c|temp_display:temp_unit }}
                     </div>
                     <div style="font-size: 0.85rem; color: #7c2d12;">
                         Target Time: <strong>{{ hottest_hour.time }}</strong>
-                        {% if hottest_hour.heat_index %}
-                            &bull; Estimated HI: <strong>{{ hottest_hour.heat_index.heat_index_c }} °C</strong> ({{ hottest_hour.heat_index.risk.category }})
-                        {% endif %}
                     </div>
+                    {% if peak_heat_index_hour %}
+                        <div style="font-size: 0.85rem; color: #7c2d12; margin-top: 0.25rem;">
+                            Peak Heat Index: <strong>{{ peak_heat_index_hour.heat_index.heat_index_c|temp_display:temp_unit }}</strong>
+                            at {{ peak_heat_index_hour.time }} ({{ peak_heat_index_hour.heat_index.risk.label }})
+                        </div>
+                    {% endif %}
                 {% else %}
                     <div style="color: var(--color-text-muted);">Not available</div>
                 {% endif %}
@@ -97,12 +101,12 @@
                 <div class="form-label" style="color: #9a3412;">Peak Hottest Forecast Day (7-Day Horizon)</div>
                 {% if hottest_day %}
                     <div style="font-size: 1.8rem; font-weight: 800; color: #9a3412;">
-                        {{ hottest_day.max_temp_c }} °C
+                        {{ hottest_day.max_temp_c|temp_display:temp_unit }}
                     </div>
                     <div style="font-size: 0.85rem; color: #7c2d12;">
                         Peak Date: <strong>{{ hottest_day.date }}</strong>
-                        {% if hottest_day.apparent_max_c %}
-                            &bull; Provider Apparent Max: <strong>{{ hottest_day.apparent_max_c }} °C</strong>
+                        {% if hottest_day.apparent_max_c is not None %}
+                            &bull; Provider Apparent Max: <strong>{{ hottest_day.apparent_max_c|temp_display:temp_unit }}</strong>
                         {% endif %}
                     </div>
                 {% else %}
@@ -157,11 +161,11 @@
                         {% if h.temperature_c is not None %}
                             <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%;">
                                 <span style="font-size: 0.7rem; font-weight: 600; color: #9a3412; margin-bottom: 2px;">
-                                    {{ h.temperature_c }}°
+                                    {{ h.temperature_c|temp_display:temp_unit }}
                                 </span>
                                 <div 
                                     style="width: 100%; max-width: 18px; height: {{ h.bar_height }}%; background-color: {% if h.temperature_c >= 40 %}#dc2626{% elif h.temperature_c >= 35 %}#ea580c{% elif h.temperature_c >= 30 %}#f59e0b{% else %}#10b981{% endif %}; border-radius: 3px 3px 0 0;"
-                                    title="Time: {{ h.time }} | Temp: {{ h.temperature_c }}°C"
+                                    title="Time: {{ h.time }} | Temp: {{ h.temperature_c|temp_display:temp_unit }}"
                                 ></div>
                                 <span style="font-size: 0.65rem; color: var(--color-text-muted); margin-top: 4px; white-space: nowrap;">
                                     {{ h.time|slice:"11:16" }}
@@ -178,9 +182,9 @@
                     <thead>
                         <tr>
                             <th>Local Time</th>
-                            <th>Temperature (°C)</th>
+                            <th>Temperature ({% if temp_unit == 'F' %}°F{% else %}°C{% endif %})</th>
                             <th>Relative Humidity (%)</th>
-                            <th>Heat Index Estimate (°C)</th>
+                            <th>Heat Index Estimate ({% if temp_unit == 'F' %}°F{% else %}°C{% endif %})</th>
                             <th>Risk Assessment</th>
                             <th>Wind Speed (km/h)</th>
                         </tr>
@@ -191,7 +195,7 @@
                                 <td><strong>{{ h.time }}</strong></td>
                                 <td>
                                     {% if h.temperature_c is not None %}
-                                        {{ h.temperature_c }} °C
+                                        {{ h.temperature_c|temp_display:temp_unit }}
                                     {% else %}
                                         <span style="color: var(--color-text-muted);">Not available</span>
                                     {% endif %}
@@ -205,7 +209,7 @@
                                 </td>
                                 <td>
                                     {% if h.heat_index %}
-                                        <strong>{{ h.heat_index.heat_index_c }} °C</strong>
+                                        <strong>{{ h.heat_index.heat_index_c|temp_display:temp_unit }}</strong>
                                         <div style="font-size: 0.725rem; color: var(--color-text-muted);">{{ h.heat_index.method_used }}</div>
                                     {% else %}
                                         <span style="color: var(--color-text-muted);">Not available</span>
@@ -259,28 +263,28 @@
                                 <td><strong>{{ d.date }}</strong></td>
                                 <td>
                                     {% if d.max_temp_c is not None %}
-                                        <span style="color: #9a3412; font-weight: 700;">{{ d.max_temp_c }} °C</span>
+                                        <span style="color: #9a3412; font-weight: 700;">{{ d.max_temp_c|temp_display:temp_unit }}</span>
                                     {% else %}
                                         <span style="color: var(--color-text-muted);">Not available</span>
                                     {% endif %}
                                 </td>
                                 <td>
                                     {% if d.min_temp_c is not None %}
-                                        <span style="color: #0369a1;">{{ d.min_temp_c }} °C</span>
+                                        <span style="color: #0369a1;">{{ d.min_temp_c|temp_display:temp_unit }}</span>
                                     {% else %}
                                         <span style="color: var(--color-text-muted);">Not available</span>
                                     {% endif %}
                                 </td>
                                 <td>
                                     {% if d.apparent_max_c is not None %}
-                                        {{ d.apparent_max_c }} °C
+                                        {{ d.apparent_max_c|temp_display:temp_unit }}
                                     {% else %}
                                         <span style="color: var(--color-text-muted);">Not available</span>
                                     {% endif %}
                                 </td>
                                 <td>
                                     {% if d.apparent_min_c is not None %}
-                                        {{ d.apparent_min_c }} °C
+                                        {{ d.apparent_min_c|temp_display:temp_unit }}
                                     {% else %}
                                         <span style="color: var(--color-text-muted);">Not available</span>
                                     {% endif %}

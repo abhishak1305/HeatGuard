@@ -9,12 +9,13 @@ from datetime import datetime, timedelta, timezone as dt_timezone
 from unittest.mock import patch
 
 from django.test import TestCase, Client
+from django.core.cache import cache
 from django.urls import reverse
 from django.utils import timezone
 from django.contrib.auth.models import User
 
 from monitoring.models import Location, WeatherRecord, OfficialNotice, SavedLocation
-from monitoring.weather_service import WeatherServiceError
+from monitoring.weather_service import WeatherServiceError, WeatherTLSVerificationError
 
 
 def _mock_forecast(temp_c=30.0, rh=55.0):
@@ -44,6 +45,7 @@ class CityComparisonViewTestCase(TestCase):
     """Tests for the city_comparison_view."""
 
     def setUp(self):
+        cache.clear()
         self.client = Client()
         self.url = reverse('monitoring:city_comparison')
 
@@ -226,6 +228,39 @@ class CityComparisonViewTestCase(TestCase):
         results = response.context['comparison_results']
         self.assertEqual(len(results), 2)
         self.assertIsNotNone(results[0]['error'])
+        self.assertIsNone(results[1]['error'])
+
+    @patch('monitoring.views.fetch_weather_forecast')
+    @patch('monitoring.views.resolve_or_create_location')
+    def test_city_name_provider_failure_is_rendered_without_secondary_error(self, mock_resolve, mock_fetch):
+        """A provider error for a geocoded city must use the resolved location in logging."""
+        mock_resolve.return_value = (self.loc1, None)
+        mock_fetch.side_effect = [WeatherServiceError('provider offline'), _mock_forecast()]
+
+        response = self.client.post(self.url, {
+            'city_name_1': 'New Delhi',
+            'station_2': self.loc2.pk,
+        })
+
+        self.assertEqual(response.status_code, 200)
+        results = response.context['comparison_results']
+        self.assertIn('currently unavailable', results[0]['error'])
+        self.assertIsNone(results[1]['error'])
+
+    @patch('monitoring.views.fetch_weather_forecast')
+    @patch('monitoring.views.resolve_or_create_location')
+    def test_city_name_tls_failure_is_rendered_without_secondary_error(self, mock_resolve, mock_fetch):
+        mock_resolve.return_value = (self.loc1, None)
+        mock_fetch.side_effect = [WeatherTLSVerificationError('certificate failure'), _mock_forecast()]
+
+        response = self.client.post(self.url, {
+            'city_name_1': 'New Delhi',
+            'station_2': self.loc2.pk,
+        })
+
+        self.assertEqual(response.status_code, 200)
+        results = response.context['comparison_results']
+        self.assertIn('secure provider connection', results[0]['error'])
         self.assertIsNone(results[1]['error'])
 
     # ------------------------------------------------------------------

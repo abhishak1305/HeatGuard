@@ -51,6 +51,15 @@ body {
     min-height: 100vh;
 }
 
+.text-muted {
+    color: var(--color-text-muted);
+}
+
+:focus-visible {
+    outline: 3px solid #f97316;
+    outline-offset: 2px;
+}
+
 /* Header & Navigation */
 header.app-header {
     background-color: var(--color-navy-dark);
@@ -461,6 +470,36 @@ table.data-table tbody tr:hover {
     color: #991b1b;
 }
 
+.ui-state-box.loading-state {
+    border-style: solid;
+    background-color: #eff6ff;
+}
+
+.comparison-city-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.25rem;
+    margin-bottom: 1.25rem;
+}
+
+.comparison-city-fieldset {
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 1rem;
+}
+
+.comparison-city-fieldset legend {
+    font-weight: 600;
+    padding: 0 0.5rem;
+}
+
+.dashboard-location-title { margin: 0; font-size: 1.5rem; color: var(--color-navy-dark); }
+.dashboard-location-meta { font-size: 0.9rem; color: var(--color-text-muted); margin-top: 0.2rem; }
+.dashboard-telemetry-meta { font-size: 0.8rem; color: var(--color-text-muted); }
+.dashboard-telemetry-value { font-size: 1.8rem; font-weight: 700; color: var(--color-navy-dark); }
+.dashboard-telemetry-card { margin-bottom: 0; background: #f8fafc; }
+.dashboard-attribution { background: #f1f5f9; border: 1px solid var(--color-border); border-radius: 4px; padding: 0.75rem 1rem; font-size: 0.8rem; color: var(--color-text-muted); margin-bottom: 1.5rem; }
+
 /* Process Flow Step Box */
 .step-card {
     background: #ffffff;
@@ -575,5 +614,15 @@ footer.app-footer {
     .footer-nav {
         flex-wrap: wrap;
         gap: 0.75rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
     }
 }

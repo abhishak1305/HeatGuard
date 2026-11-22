@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load utils_tags %}
 
 {% block title %}User Profile & Saved Stations - HeatGuard{% endblock %}
 
@@ -73,6 +74,7 @@
         <h3 style="margin: 0 0 0.75rem; font-size: 1.2rem; color: var(--color-navy-dark);">
             Your Recent Telemetry Queries
         </h3>
+        <p><a href="{% url 'monitoring:weather_history' %}">Browse all saved weather history</a></p>
         {% if query_history %}
             <div class="table-responsive">
                 <table class="data-table">
@@ -89,15 +91,19 @@
                     <tbody>
                         {% for record in query_history %}
                             <tr>
-                                <td>{{ record.recorded_at|date:"Y-m-d H:i" }} UTC</td>
+                                <td>{{ record.recorded_at|date:"Y-m-d H:i" }} IST</td>
                                 <td><strong>{{ record.location.name }}</strong></td>
-                                <td>{{ record.temperature_c }} °C</td>
+                                <td>{{ record.temperature_c|temp_display:temp_unit }}</td>
                                 <td>{{ record.relative_humidity }}%</td>
-                                <td>{% if record.heat_index_c %}{{ record.heat_index_c }} °C{% else %}Not available{% endif %}</td>
+                                <td>{% if record.heat_index_c is not None %}{{ record.heat_index_c|temp_display:temp_unit }}{% else %}Not available{% endif %}</td>
                                 <td>
-                                    <span class="badge {% if record.risk_level == 'NORMAL' %}risk-low{% elif record.risk_level == 'CAUTION' %}risk-moderate{% elif record.risk_level == 'EXTREME_CAUTION' %}risk-high{% elif record.risk_level == 'DANGER' %}risk-very-high{% else %}risk-extreme{% endif %}">
-                                        {{ record.risk_level }}
-                                    </span>
+                                    {% if record.risk_level %}
+                                        <span class="badge {% if record.risk_level == 'NORMAL' %}risk-low{% elif record.risk_level == 'CAUTION' %}risk-moderate{% elif record.risk_level == 'EXTREME_CAUTION' %}risk-high{% elif record.risk_level == 'DANGER' %}risk-very-high{% else %}risk-extreme{% endif %}">
+                                            {{ record.get_risk_level_display }}
+                                        </span>
+                                    {% else %}
+                                        Not assessed
+                                    {% endif %}
                                 </td>
                             </tr>
                         {% endfor %}

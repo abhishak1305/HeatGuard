@@ -101,7 +101,9 @@ class UserAuthenticationWorkflowTestCase(TestCase):
         }
         response = self.client.post(url, data=post_data)
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Invalid username or password.")
+        error = str(response.context['form'].non_field_errors()[0])
+        self.assertIn('username and password', error)
+        self.assertEqual(response.content.decode().count(error), 1)
         self.assertNotIn(SESSION_KEY, self.client.session)
 
     def test_logout_clears_session(self):
@@ -139,7 +141,7 @@ class UserAuthenticationWorkflowTestCase(TestCase):
         # 1. Save location
         save_url = reverse('monitoring:save_location', kwargs={'location_id': self.location.id})
         res_save = self.client.post(save_url)
-        self.assertRedirects(res_save, reverse('monitoring:city_dashboard', kwargs={'location_id': self.location.id}))
+        self.assertRedirects(res_save, reverse('monitoring:city_dashboard', kwargs={'location_id': self.location.id}), fetch_redirect_response=False)
         self.assertTrue(SavedLocation.objects.filter(user=self.user, location=self.location).exists())
 
         # 2. Check profile reflects bookmark
@@ -149,5 +151,5 @@ class UserAuthenticationWorkflowTestCase(TestCase):
         # 3. Remove location
         remove_url = reverse('monitoring:remove_saved_location', kwargs={'location_id': self.location.id})
         res_remove = self.client.post(remove_url)
-        self.assertRedirects(res_remove, reverse('monitoring:city_dashboard', kwargs={'location_id': self.location.id}))
+        self.assertRedirects(res_remove, reverse('monitoring:city_dashboard', kwargs={'location_id': self.location.id}), fetch_redirect_response=False)
         self.assertFalse(SavedLocation.objects.filter(user=self.user, location=self.location).exists())

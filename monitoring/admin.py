@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django import forms
 from .models import Location, WeatherRecord, OfficialNotice, SavedLocation
 
 
@@ -11,8 +12,24 @@ class LocationAdmin(admin.ModelAdmin):
     ordering = ('name',)
 
 
+class WeatherRecordAdminForm(forms.ModelForm):
+    class Meta:
+        model = WeatherRecord
+        fields = '__all__'
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['data_source'].help_text = (
+            'Select the actual provenance for this record. Do not label a manual entry as provider-supplied.'
+        )
+        if self.instance._state.adding:
+            self.fields['data_source'].initial = ''
+
+
 @admin.register(WeatherRecord)
 class WeatherRecordAdmin(admin.ModelAdmin):
+    form = WeatherRecordAdminForm
+    list_select_related = ('location', 'requested_by')
     list_display = (
         'location',
         'record_type',
@@ -32,6 +49,7 @@ class WeatherRecordAdmin(admin.ModelAdmin):
 
 @admin.register(OfficialNotice)
 class OfficialNoticeAdmin(admin.ModelAdmin):
+    list_select_related = ('location', 'created_by')
     list_display = (
         'title',
         'location',
@@ -50,6 +68,7 @@ class OfficialNoticeAdmin(admin.ModelAdmin):
 
 @admin.register(SavedLocation)
 class SavedLocationAdmin(admin.ModelAdmin):
+    list_select_related = ('user', 'location')
     list_display = ('user', 'location', 'created_at')
     list_filter = ('created_at', 'location__country')
     search_fields = ('user__username', 'location__name')

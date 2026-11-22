@@ -6,10 +6,10 @@ Does not generate synthetic weather values or fake fallback readings.
 """
 
 import json
-import ssl
 import urllib.request
 import urllib.parse
 import urllib.error
+import ssl
 from decimal import Decimal
 from datetime import datetime, timezone
 
@@ -18,20 +18,16 @@ FORECAST_API_URL = "https://api.open-meteo.com/v1/forecast"
 DEFAULT_TIMEOUT_SECONDS = 5.0
 
 
-def _urlopen_with_ssl_fallback(req, timeout):
+def _urlopen(req, timeout):
     """
-    Executes urllib.request.urlopen.
-    If standard SSL certificate verification fails due to local proxy or
-    institutional self-signed certificate inspection, falls back to an unverified context
-    so environmental telemetry queries continue working reliably.
+    Executes urllib.request.urlopen with normal TLS certificate verification.
+
+    Certificate verification is intentionally NOT bypassed: silently accepting
+    an invalid certificate would let a man-in-the-middle attacker tamper with
+    the weather data shown to the public. Environments with a corporate proxy
+    must install the proxy's CA certificate instead of disabling verification.
     """
-    try:
-        return urllib.request.urlopen(req, timeout=timeout)
-    except urllib.error.URLError as e:
-        if 'CERTIFICATE_VERIFY_FAILED' in str(e) or 'certificate verify failed' in str(e):
-            ctx = ssl._create_unverified_context()
-            return urllib.request.urlopen(req, timeout=timeout, context=ctx)
-        raise
+    return urllib.request.urlopen(req, timeout=timeout)
 
 
 class WeatherServiceError(Exception):
@@ -41,6 +37,11 @@ class WeatherServiceError(Exception):
 
 class WeatherNetworkError(WeatherServiceError):
     """Raised on connection timeout or network connectivity failure."""
+    pass
+
+
+class WeatherTLSVerificationError(WeatherServiceError):
+    """Raised when the provider TLS certificate cannot be verified."""
     pass
 
 
@@ -54,7 +55,7 @@ class WeatherDataFormatError(WeatherServiceError):
     pass
 
 
-def geocode_city(city_name, count=1, timeout=DEFAULT_TIMEOUT_SECONDS):
+def geocode_city(city_name, count=1, timeout=DEFAULT_TIMEOUT_SECONDS, return_all=False):
     """
     Queries the Open-Meteo Geocoding API for a city name.
     
@@ -85,14 +86,26 @@ def geocode_city(city_name, count=1, timeout=DEFAULT_TIMEOUT_SECONDS):
     )
 
     try:
-        with _urlopen_with_ssl_fallback(req, timeout=timeout) as response:
+        with _urlopen(req, timeout=timeout) as response:
             status_code = response.getcode()
             if status_code != 200:
                 raise WeatherAPIError(f"Geocoding service returned HTTP status {status_code}.")
             raw_body = response.read().decode('utf-8')
     except urllib.error.HTTPError as e:
         raise WeatherAPIError(f"Geocoding service failed with HTTP {e.code}: {e.reason}")
-    except (urllib.error.URLError, TimeoutError, OSError) as e:
+    except urllib.error.URLError as e:
+        if isinstance(e.reason, ssl.SSLCertVerificationError):
+            raise WeatherTLSVerificationError(
+                "TLS certificate verification failed for the geocoding service. "
+                "Check system CA certificates or network proxy configuration."
+            ) from e
+        raise WeatherNetworkError(f"Network error connecting to geocoding service: {str(e)}")
+    except ssl.SSLCertVerificationError as e:
+        raise WeatherTLSVerificationError(
+            "TLS certificate verification failed for the geocoding service. "
+            "Check system CA certificates or network proxy configuration."
+        ) from e
+    except (TimeoutError, OSError) as e:
         raise WeatherNetworkError(f"Network error connecting to geocoding service: {str(e)}")
 
     try:
@@ -107,28 +120,23 @@ def geocode_city(city_name, count=1, timeout=DEFAULT_TIMEOUT_SECONDS):
     if not results or not isinstance(results, list):
         return None
 
-    first = results[0]
-    if not isinstance(first, dict):
-        raise WeatherDataFormatError("Malformed result item in geocoding results list.")
+    normalized_results = []
+    for result in results:
+        if not isinstance(result, dict):
+            raise WeatherDataFormatError("Malformed result item in geocoding results list.")
+        try:
+            normalized_results.append({
+                'name': str(result.get('name', '')).strip(),
+                'state_or_region': str(result.get('admin1', '')).strip(),
+                'country': str(result.get('country', '')).strip() or "Global",
+                'latitude': Decimal(str(result['latitude'])).quantize(Decimal('0.00001')),
+                'longitude': Decimal(str(result['longitude'])).quantize(Decimal('0.00001')),
+                'timezone': str(result.get('timezone', 'UTC')).strip() or "UTC",
+            })
+        except (KeyError, ValueError, TypeError) as e:
+            raise WeatherDataFormatError(f"Missing or invalid location coordinate fields: {str(e)}")
 
-    try:
-        name = str(first.get('name', '')).strip()
-        region = str(first.get('admin1', '')).strip()
-        country = str(first.get('country', '')).strip() or "Global"
-        lat = Decimal(str(first['latitude']))
-        lon = Decimal(str(first['longitude']))
-        tz = str(first.get('timezone', 'UTC')).strip() or "UTC"
-
-        return {
-            'name': name,
-            'state_or_region': region,
-            'country': country,
-            'latitude': lat.quantize(Decimal('0.00001')),
-            'longitude': lon.quantize(Decimal('0.00001')),
-            'timezone': tz,
-        }
-    except (KeyError, ValueError, TypeError) as e:
-        raise WeatherDataFormatError(f"Missing or invalid location coordinate fields: {str(e)}")
+    return normalized_results if return_all else normalized_results[0]
 
 
 def fetch_weather_forecast(latitude, longitude, tz="auto", timeout=DEFAULT_TIMEOUT_SECONDS):
@@ -154,14 +162,26 @@ def fetch_weather_forecast(latitude, longitude, tz="auto", timeout=DEFAULT_TIMEO
     )
 
     try:
-        with _urlopen_with_ssl_fallback(req, timeout=timeout) as response:
+        with _urlopen(req, timeout=timeout) as response:
             status_code = response.getcode()
             if status_code != 200:
                 raise WeatherAPIError(f"Forecast service returned HTTP status {status_code}.")
             raw_body = response.read().decode('utf-8')
     except urllib.error.HTTPError as e:
         raise WeatherAPIError(f"Forecast service failed with HTTP {e.code}: {e.reason}")
-    except (urllib.error.URLError, TimeoutError, OSError) as e:
+    except urllib.error.URLError as e:
+        if isinstance(e.reason, ssl.SSLCertVerificationError):
+            raise WeatherTLSVerificationError(
+                "TLS certificate verification failed for the forecast service. "
+                "Check system CA certificates or network proxy configuration."
+            ) from e
+        raise WeatherNetworkError(f"Network error connecting to forecast service: {str(e)}")
+    except ssl.SSLCertVerificationError as e:
+        raise WeatherTLSVerificationError(
+            "TLS certificate verification failed for the forecast service. "
+            "Check system CA certificates or network proxy configuration."
+        ) from e
+    except (TimeoutError, OSError) as e:
         raise WeatherNetworkError(f"Network error connecting to forecast service: {str(e)}")
 
     try:
@@ -178,14 +198,16 @@ def fetch_weather_forecast(latitude, longitude, tz="auto", timeout=DEFAULT_TIMEO
 
     try:
         temp_c = Decimal(str(current['temperature_2m']))
-        humidity = Decimal(str(current['relative_humidity_2m']))
+        humidity_value = current.get('relative_humidity_2m')
+        humidity = Decimal(str(humidity_value)) if humidity_value is not None else None
         apparent_temp_c = Decimal(str(current.get('apparent_temperature', temp_c))) if current.get('apparent_temperature') is not None else None
         wind_speed_kmh = Decimal(str(current.get('wind_speed_10m'))) if current.get('wind_speed_10m') is not None else None
         time_str = str(current.get('time', ''))
     except (KeyError, ValueError, TypeError) as e:
         raise WeatherDataFormatError(f"Missing or invalid field in current weather block: {str(e)}")
 
-    # Parse hourly forecast (extract up to 24 hours)
+    # Parse hourly forecast (keep the provider's full window; the view decides
+    # which hours are "upcoming" relative to the provider's current time).
     hourly_items = []
     hourly = data.get('hourly', {})
     if isinstance(hourly, dict):
@@ -195,7 +217,7 @@ def fetch_weather_forecast(latitude, longitude, tz="auto", timeout=DEFAULT_TIMEO
         h_apparent = hourly.get('apparent_temperature', [])
         h_wind = hourly.get('wind_speed_10m', [])
 
-        limit = min(len(h_times), len(h_temps), 24)
+        limit = min(len(h_times), len(h_temps))
         for i in range(limit):
             t_val = Decimal(str(h_temps[i])) if h_temps[i] is not None else None
             rh_val = Decimal(str(h_humidity[i])) if (i < len(h_humidity) and h_humidity[i] is not None) else None

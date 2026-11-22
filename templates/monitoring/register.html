@@ -27,11 +27,7 @@
 
         <div class="form-group">
             <label for="id_username" class="form-label">Username *</label>
-            {% if form.username %}
-                {{ form.username }}
-            {% else %}
-                <input type="text" name="username" class="form-input" placeholder="Choose a username" required id="id_username" autofocus>
-            {% endif %}
+            {{ form.username }}
             {% for error in form.username.errors %}
                 <div class="form-error">{{ error }}</div>
             {% endfor %}
@@ -42,11 +38,7 @@
 
         <div class="form-group">
             <label for="id_email" class="form-label">Email Address (Optional)</label>
-            {% if form.email %}
-                {{ form.email }}
-            {% else %}
-                <input type="email" name="email" class="form-input" placeholder="Optional email address" id="id_email">
-            {% endif %}
+            {{ form.email }}
             {% for error in form.email.errors %}
                 <div class="form-error">{{ error }}</div>
             {% endfor %}
@@ -54,11 +46,7 @@
 
         <div class="form-group">
             <label for="id_password1" class="form-label">Password *</label>
-            {% if form.password1 %}
-                {{ form.password1 }}
-            {% else %}
-                <input type="password" name="password1" class="form-input" placeholder="Enter a secure password" required id="id_password1">
-            {% endif %}
+            {{ form.password1 }}
             {% for error in form.password1.errors %}
                 <div class="form-error">{{ error }}</div>
             {% endfor %}
@@ -69,11 +57,7 @@
 
         <div class="form-group">
             <label for="id_password2" class="form-label">Confirm Password *</label>
-            {% if form.password2 %}
-                {{ form.password2 }}
-            {% else %}
-                <input type="password" name="password2" class="form-input" placeholder="Enter a secure password" required id="id_password2">
-            {% endif %}
+            {{ form.password2 }}
             {% for error in form.password2.errors %}
                 <div class="form-error">{{ error }}</div>
             {% endfor %}

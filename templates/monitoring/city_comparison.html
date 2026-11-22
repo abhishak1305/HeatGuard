@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load utils_tags %}
 
 {% block title %}City Comparison - HeatGuard{% endblock %}
 
@@ -22,10 +23,10 @@
         </div>
         {% endif %}
 
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.25rem; margin-bottom: 1.25rem;">
+        <div class="comparison-city-grid">
             <!-- City 1 (Required) -->
-            <fieldset style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem;">
-                <legend style="font-weight: 600; padding: 0 0.5rem;">City 1 (Required)</legend>
+            <fieldset class="comparison-city-fieldset">
+                <legend>City 1 (Required)</legend>
                 <div class="form-group">
                     <label for="{{ form.station_1.id_for_label }}">{{ form.station_1.label }}</label>
                     {{ form.station_1 }}
@@ -39,8 +40,8 @@
             </fieldset>
 
             <!-- City 2 (Required) -->
-            <fieldset style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem;">
-                <legend style="font-weight: 600; padding: 0 0.5rem;">City 2 (Required)</legend>
+            <fieldset class="comparison-city-fieldset">
+                <legend>City 2 (Required)</legend>
                 <div class="form-group">
                     <label for="{{ form.station_2.id_for_label }}">{{ form.station_2.label }}</label>
                     {{ form.station_2 }}
@@ -54,8 +55,8 @@
             </fieldset>
 
             <!-- City 3 (Optional) -->
-            <fieldset style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem;">
-                <legend style="font-weight: 600; padding: 0 0.5rem;">City 3 (Optional)</legend>
+            <fieldset class="comparison-city-fieldset">
+                <legend>City 3 (Optional)</legend>
                 <div class="form-group">
                     <label for="{{ form.station_3.id_for_label }}">{{ form.station_3.label }}</label>
                     {{ form.station_3 }}
@@ -103,8 +104,8 @@
                     <td>
                         {% if result.error %}
                             <span class="text-muted" title="{{ result.error }}">⚠ Unavailable</span>
-                        {% elif result.temperature_c != None %}
-                            {{ result.temperature_c }} °C
+                        {% elif result.temperature_c is not None %}
+                            {{ result.temperature_c|temp_display:temp_unit }}
                         {% else %}
                             <span class="text-muted">Not available</span>
                         {% endif %}
@@ -119,7 +120,7 @@
                     <td>
                         {% if result.error %}
                             <span class="text-muted">⚠ Unavailable</span>
-                        {% elif result.relative_humidity != None %}
+                        {% elif result.relative_humidity is not None %}
                             {{ result.relative_humidity }}%
                         {% else %}
                             <span class="text-muted">Not available</span>
@@ -135,8 +136,8 @@
                     <td>
                         {% if result.error %}
                             <span class="text-muted">⚠ Unavailable</span>
-                        {% elif result.apparent_temperature_c != None %}
-                            {{ result.apparent_temperature_c }} °C
+                        {% elif result.apparent_temperature_c is not None %}
+                            {{ result.apparent_temperature_c|temp_display:temp_unit }}
                         {% else %}
                             <span class="text-muted">Not available</span>
                         {% endif %}
@@ -151,7 +152,7 @@
                     <td>
                         {% if result.error %}
                             <span class="text-muted">⚠ Unavailable</span>
-                        {% elif result.wind_speed_kmh != None %}
+                        {% elif result.wind_speed_kmh is not None %}
                             {{ result.wind_speed_kmh }} km/h
                         {% else %}
                             <span class="text-muted">Not available</span>
@@ -167,8 +168,8 @@
                     <td>
                         {% if result.error %}
                             <span class="text-muted">⚠ Unavailable</span>
-                        {% elif result.heat_index_c != None %}
-                            {{ result.heat_index_c }} °C
+                        {% elif result.heat_index_c is not None %}
+                            {{ result.heat_index_c|temp_display:temp_unit }}
                         {% else %}
                             <span class="text-muted">Not applicable</span>
                         {% endif %}
@@ -198,7 +199,7 @@
                     <td><strong>Retrieval Time</strong></td>
                     {% for result in comparison_results %}
                     <td>
-                        {% if result.retrieval_time_ms != None %}
+                        {% if result.retrieval_time_ms is not None %}
                             {{ result.retrieval_time_ms }} ms
                         {% else %}
                             <span class="text-muted">—</span>

@@ -76,7 +76,7 @@
                 <h4 style="margin: 0;">Forecast Outlook</h4>
             </div>
             <p style="font-size: 0.875rem; color: var(--color-text-muted);">
-                24 to 72-hour thermal outlook trends to assist community planners and outdoor workers in scheduling activities safely.
+                24-hour hourly and 7-day thermal outlook trends to assist community planners and outdoor workers in scheduling activities safely.
             </p>
             <a href="{% url 'monitoring:forecast' %}" class="btn btn-secondary" style="margin-top: 0.5rem;">Inspect Forecast</a>
         </div>
@@ -86,9 +86,9 @@
                 <h4 style="margin: 0;">Safety Guidance</h4>
             </div>
             <p style="font-size: 0.875rem; color: var(--color-text-muted);">
-                Standard risk category indicators (Low, Moderate, High, Very High, Extreme) linked to hydration and shade recommendations.
+                Heat Index screening indicators (Normal, Caution, Extreme Caution, Danger, Extreme Danger) linked to hydration and shade recommendations.
             </p>
-            <a href="{% url 'monitoring:city_comparison' %}" class="btn btn-secondary" style="margin-top: 0.5rem;">Compare Risk Levels</a>
+            <a href="{% url 'monitoring:safety_guidance' %}" class="btn btn-secondary" style="margin-top: 0.5rem;">View Safety Guidance</a>
         </div>
 
         <div class="card" style="margin-bottom: 0;">
@@ -106,7 +106,7 @@
                 <h4 style="margin: 0;">Account Features</h4>
             </div>
             <p style="font-size: 0.875rem; color: var(--color-text-muted);">
-                Registered users can bookmark favorite stations and record localized observation reports.
+                Registered users can bookmark favorite stations and review their own recent telemetry queries.
             </p>
             <a href="{% url 'monitoring:register' %}" class="btn btn-primary" style="margin-top: 0.5rem;">Register Free</a>
         </div>
@@ -122,17 +122,17 @@
         <div class="step-card">
             <span class="step-number">1</span>
             <h4>Weather Telemetry</h4>
-            <p>Temperature and relative humidity readings are ingested from Open-Meteo or entered by registered observers.</p>
+            <p>Current conditions and forecast values come from Open-Meteo. A reading is added to history only when a visitor explicitly saves the provider observation.</p>
         </div>
         <div class="step-card">
             <span class="step-number">2</span>
             <h4>Heat Index Model</h4>
-            <p>The application computes the Rothfusz regression equation to calculate the estimated apparent temperature.</p>
+            <p>The application uses the preliminary Steadman calculation and, when its screening threshold is met, the Rothfusz regression to estimate apparent temperature.</p>
         </div>
         <div class="step-card">
             <span class="step-number">3</span>
             <h4>Risk Classification</h4>
-            <p>The calculated thermal index is mapped to standard advisory risk tiers (Caution, Danger, Extreme Danger).</p>
+            <p>The Heat Index estimate is mapped to the screening tiers Normal, Caution, Extreme Caution, Danger, and Extreme Danger.</p>
         </div>
         <div class="step-card">
             <span class="step-number">4</span>
@@ -140,6 +140,10 @@
             <p>Users and community operators review actionable precautions, hydration guidelines, and published alerts.</p>
         </div>
     </div>
+    {% if user.is_authenticated %}
+        <p style="margin-top:1rem;">You can add a clearly labeled, unverified community observation.</p>
+        <a href="{% url 'monitoring:manual_observation' %}" class="btn btn-secondary">Report an Observation</a>
+    {% endif %}
 </section>
 
 <!-- Methodology & Limitations Disclaimer -->
@@ -155,7 +159,7 @@
         </p>
         <p>
             <strong>Applicability Bounds:</strong>
-            The Rothfusz regression formula is scientifically valid for air temperatures of $26.7^\circ\text{C}$ ($80^\circ\text{F}$) or higher and relative humidity of 40% or higher. Below these ranges, environmental moisture does not produce compounding thermal stress.
+            HeatGuard calculates a preliminary Steadman estimate and averages it with ambient air temperature. When that average reaches about 80 °F (26.7 °C), the application uses the Rothfusz regression and applicable humidity adjustment; below that threshold it uses the preliminary average. This shade-oriented estimate is not WBGT and does not include direct solar exposure. See the <a href="https://www.wpc.ncep.noaa.gov/html/heatindex_equation.shtml" target="_blank" rel="noopener noreferrer">National Weather Service method</a>.
         </p>
         <div class="alert alert-warning" style="margin-bottom: 0;">
             <strong>Important Legal & Medical Disclaimer:</strong>

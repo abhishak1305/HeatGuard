@@ -27,6 +27,32 @@
         </div>
     {% endif %}
 
+    {% if location_candidates %}
+        <section aria-labelledby="candidate-heading">
+            <h3 id="candidate-heading">Choose the matching location</h3>
+            {% for candidate in location_candidates %}
+                <form method="post" action="{% url 'monitoring:city_search' %}" style="display: inline-block; margin: 0.25rem;">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="select_location">
+                    <input type="hidden" name="candidate_index" value="{{ forloop.counter0 }}">
+                    <button type="submit" class="btn btn-secondary">
+                        {{ candidate.name }}{% if candidate.state_or_region %}, {{ candidate.state_or_region }}{% endif %}, {{ candidate.country }}
+                    </button>
+                </form>
+            {% endfor %}
+        </section>
+    {% endif %}
+    {% if matching_locations %}
+        <section aria-labelledby="matches-heading">
+            <h3 id="matches-heading">Select a station</h3>
+            {% for station in matching_locations %}
+                <a class="btn btn-secondary" href="{% url 'monitoring:city_dashboard' location_id=station.id %}">
+                    {{ station.name }}{% if station.state_or_region %}, {{ station.state_or_region }}{% endif %}, {{ station.country }}
+                </a>
+            {% endfor %}
+        </section>
+    {% endif %}
+
     <form method="get" action="{% url 'monitoring:city_search' %}" novalidate style="margin-bottom: 1.5rem;">
         <div class="form-group" style="max-width: 580px;">
             <label for="{{ form.city.id_for_label }}" class="form-label">{{ form.city.label }}</label>
@@ -89,6 +115,13 @@
         </div>
     {% else %}
         {% include 'monitoring/partials/state_box.html' with title="No Stations Registered" message="There are currently no monitoring stations saved in the database." %}
+    {% endif %}
+    {% if all_stations.paginator.num_pages > 1 %}
+        <nav aria-label="Location directory pages" style="display:flex;gap:.75rem;justify-content:center;margin-top:1rem;">
+            {% if all_stations.has_previous %}<a class="btn btn-secondary" href="?{% if station_query %}{{ station_query }}&amp;{% endif %}directory_page={{ all_stations.previous_page_number }}">Previous</a>{% endif %}
+            <span>Page {{ all_stations.number }} of {{ all_stations.paginator.num_pages }}</span>
+            {% if all_stations.has_next %}<a class="btn btn-secondary" href="?{% if station_query %}{{ station_query }}&amp;{% endif %}directory_page={{ all_stations.next_page_number }}">Next</a>{% endif %}
+        </nav>
     {% endif %}
 </div>
 {% endblock %}

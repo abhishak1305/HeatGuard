@@ -16,17 +16,15 @@ CRITICAL SCIENTIFIC & METHODOLOGY NOTES:
    WBGT incorporates direct solar radiation load, solar angle, cloud cover, and wind velocity.
 
 2. Applicable Input Ranges:
-   - Temperature (°C): Scientifically reasonable meteorologic range (-50°C to 60°C).
+   - Temperature (°C): The implementation accepts values from -50°C to 65°C.
    - Relative Humidity (%): Valid 0.0% to 100.0%.
 
 3. NWS Algorithm Sequence:
    a. Convert ambient temperature from Celsius to Fahrenheit (T_F = T_C * 9/5 + 32).
    b. Compute the simple preliminary Steadman equation:
       HI_simple = 0.5 * (T_F + 61.0 + ((T_F - 68.0) * 1.2) + (RH * 0.094))
-   c. If the simple formula produces HI_simple < 80.0°F (or if average of HI_simple and T_F < 80.0°F),
-      the Heat Index is HI_simple. In typical lower-heat conditions, heat stress is minimal
-      and apparent temperature is close to ambient.
-   d. If HI_simple >= 80.0°F, compute the full 9-term Rothfusz regression equation:
+   c. Average HI_simple with T_F. If that average is below 80.0°F, use the average.
+      Otherwise compute the full regression:
       HI = -42.379 + 2.04901523*T + 10.14333127*RH - 0.22475541*T*RH
            - 0.00683783*T^2 - 0.05481717*RH^2 + 0.00122874*T^2*RH
            + 0.00085282*T*RH^2 - 0.00000199*T^2*RH^2
@@ -187,14 +185,13 @@ def compute_nws_heat_index(temperature_c, relative_humidity):
     # Average between simple estimate and ambient temperature
     avg_f = 0.5 * (hi_simple_f + t_f)
 
-    # If temperature is low or heat index is below 80°F, use simple method
-    if avg_f < 80.0 or t_f < 80.0:
-        final_hi_f = hi_simple_f
+    if avg_f < 80.0:
+        final_hi_f = avg_f
         method = 'simple'
         adjustment = 'none'
         explanation = (
-            f"Ambient conditions ({t_c:.1f}°C, {rh:.1f}% RH) are below the compounding thermal "
-            f"stress threshold (80°F / 26.7°C). Calculated using preliminary Steadman equation."
+            "Ambient conditions are below the compounding thermal stress threshold "
+            "(80°F / 26.7°C). Calculated using the preliminary Steadman equation."
         )
     else:
         # 2. Full Rothfusz regression equation
